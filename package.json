@@ -1,0 +1,72 @@
+{
+  "name": "casiocgm",
+  "author": "simon",
+  "version": "1.0.0",
+  "keywords": ["pebble-app"],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "CasioCGM",
+    "uuid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "aplite",
+      "basalt",
+      "chalk",
+      "diorite",
+      "emery"
+    ],
+    "watchapp": {
+      "watchface": true
+    },
+    "capabilities": ["health", "configurable"],
+    "resources": {
+      "media": [
+        {
+          "type": "font",
+          "name": "FONT_DSEG_25_BOLD",
+          "file": "fonts/DSEG14Classic-Bold.ttf",
+          "characterRegex": "[-0-9A-Z:. %]",
+          "size": 25
+        },
+        {
+          "type": "font",
+          "name": "FONT_DSEG_30_BOLD",
+          "file": "fonts/DSEG14Classic-Bold.ttf",
+          "characterRegex": "[-0-9A-Z:. %]",
+          "size": 30
+        }
+      ]
+    },
+    "messageKeys": [
+      "NS_URL",
+      "NS_TOKEN",
+      "NS_UNITS",
+      "NS_HIGH",
+      "NS_LOW",
+      "NS_STALE_MIN",
+      "COLOR_BG",
+      "COLOR_FG",
+      "COLOR_ACCENT",
+      "COLOR_CGM_OK",
+      "COLOR_CGM_HIGH",
+      "COLOR_CGM_LOW",
+      "COMPLICATION",
+      "LABEL_TOP_LEFT",
+      "LABEL_TOP_RIGHT",
+      "LABEL_BOTTOM",
+      "FIRST_WEEKDAY",
+      "DATE_FORMAT",
+      "CGM_VALUE",
+      "CGM_DELTA",
+      "CGM_TREND",
+      "CGM_AGE",
+      "STEPS",
+      "HR",
+      "WEATHER_TEMP",
+      "WEATHER_ICON",
+      "BATT_PCT"
+    ]
+  }
+}

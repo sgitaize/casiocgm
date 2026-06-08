@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>CasioCGM Config</title>
+<style>
+  :root {
+    --bg:       #0e0e0e;
+    --panel:    #161616;
+    --card:     #1c1c1c;
+    --red:      #cc1111;
+    --red-dim:  #7a0a0a;
+    --gold:     #c8921a;
+    --text:     #d8d8d8;
+    --text2:    #787878;
+    --border:   #2e2e2e;
+    --input-bg: #111;
+    --green:    #22aa44;
+    --radius:   6px;
+    --font-mono: 'Courier New', 'Lucida Console', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    padding-bottom: 32px;
+  }
+
+  /* ── Header ─────────────────────────────────────────────── */
+  header {
+    background: var(--panel);
+    border-top: 4px solid var(--red);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .header-title {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .header-label {
+    font-size: 0.6rem;
+    letter-spacing: 3px;
+    color: var(--text2);
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+  }
+  .header-name {
+    font-size: 1.25rem;
+    font-weight: bold;
+    letter-spacing: 3px;
+    color: var(--text);
+    font-family: var(--font-mono);
+  }
+  .header-name span { color: var(--red); }
+
+  #lang-btn {
+    background: transparent;
+    color: var(--text2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 5px 12px;
+    cursor: pointer;
+    font-size: 0.8rem;
+  }
+  #lang-btn:hover { border-color: var(--red); color: var(--text); }
+
+  /* ── Bottom red stripe accent under header ───────────────── */
+  .header-stripe {
+    height: 3px;
+    background: linear-gradient(90deg, var(--red) 0%, var(--red-dim) 60%, transparent 100%);
+  }
+
+  /* ── Container ───────────────────────────────────────────── */
+  .container { max-width: 480px; margin: 0 auto; padding: 14px 14px 0; }
+
+  /* ── Section cards ───────────────────────────────────────── */
+  .section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+
+  .section-header {
+    padding: 9px 14px;
+    font-size: 0.72rem;
+    letter-spacing: 2px;
+    color: var(--text2);
+    text-transform: uppercase;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--font-mono);
+    border-left: 3px solid transparent;
+    transition: border-color 0.15s, color 0.15s;
+    user-select: none;
+  }
+  .section-header:hover  { color: var(--text); border-left-color: var(--red); }
+  .section-header.open   { color: var(--text); border-left-color: var(--red); }
+  .section-header .arrow { font-size: 0.6rem; transition: transform 0.18s; }
+  .section-header.open .arrow { transform: rotate(90deg); }
+
+  .section-body { padding: 12px 14px; display: none; border-top: 1px solid var(--border); }
+  .section-body.open { display: block; }
+
+  /* ── Form fields ─────────────────────────────────────────── */
+  .field { margin-bottom: 12px; }
+  .field:last-child { margin-bottom: 0; }
+
+  .field label {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--text2);
+    margin-bottom: 5px;
+    letter-spacing: 0.5px;
+  }
+
+  .field input[type=text],
+  .field input[type=url],
+  .field input[type=number],
+  .field select {
+    width: 100%;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    padding: 8px 10px;
+    font-size: 0.88rem;
+    outline: none;
+    font-family: inherit;
+  }
+  .field input:focus,
+  .field select:focus { border-color: var(--red); }
+
+  .field input[type=color] {
+    width: 44px;
+    height: 34px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    background: var(--input-bg);
+    padding: 2px;
+  }
+
+  .color-row { display: flex; align-items: center; gap: 8px; }
+  .color-row input[type=text] { flex: 1; font-family: var(--font-mono); }
+
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .hint {
+    font-size: 0.68rem;
+    color: var(--text2);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+
+  /* ── Buttons ─────────────────────────────────────────────── */
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+    margin-bottom: 14px;
+  }
+  .btn {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+    cursor: pointer;
+    font-weight: bold;
+    letter-spacing: 1px;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    transition: opacity 0.15s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn-save   { background: var(--red);  color: #fff; }
+  .btn-cancel { background: var(--card); color: var(--text2); border: 1px solid var(--border); }
+
+  /* ── Donate ──────────────────────────────────────────────── */
+  .donate {
+    text-align: center;
+    padding: 14px 0 6px;
+    font-size: 0.75rem;
+    color: var(--text2);
+  }
+  .donate a {
+    display: inline-block;
+    margin-top: 7px;
+    background: #009cde;
+    color: #fff;
+    text-decoration: none;
+    padding: 7px 18px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+  }
+  .donate a:hover { background: #007ab8; }
+
+  /* ── Version footer ──────────────────────────────────────── */
+  .footer {
+    text-align: center;
+    font-size: 0.62rem;
+    color: #3a3a3a;
+    font-family: var(--font-mono);
+    letter-spacing: 1px;
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-title">
+    <span class="header-label">Watchface Config</span>
+    <span class="header-name">CASIO<span>CGM</span></span>
+  </div>
+  <button id="lang-btn" onclick="toggleLang()">DE</button>
+</header>
+<div class="header-stripe"></div>
+
+<div class="container">
+
+  <!-- Nightscout ─────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-header open" onclick="toggleSection(this)">
+      <span data-en="NIGHTSCOUT / CGM" data-de="NIGHTSCOUT / CGM">NIGHTSCOUT / CGM</span>
+      <span class="arrow">▶</span>
+    </div>
+    <div class="section-body open">
+      <div class="field">
+        <label data-en="Nightscout URL" data-de="Nightscout-URL">Nightscout URL</label>
+        <input type="url" id="nsUrl" placeholder="https://your-site.ns.10be.de">
+      </div>
+      <div class="field">
+        <label data-en="API Token (optional)" data-de="API-Token (optional)">API Token (optional)</label>
+        <input type="text" id="nsToken" placeholder="your-token">
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label data-en="Units" data-de="Einheit">Units</label>
+          <select id="nsUnits">
+            <option value="0">mg/dL</option>
+            <option value="1">mmol/L</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-en="Stale after (min)" data-de="Veraltet nach (min)">Stale after (min)</label>
+          <input type="number" id="nsStaleMin" value="10" min="1" max="60">
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label data-en="High threshold" data-de="Hoch-Schwellwert">High threshold</label>
+          <input type="number" id="nsHigh" value="180" min="100" max="400">
+        </div>
+        <div class="field">
+          <label data-en="Low threshold" data-de="Tief-Schwellwert">Low threshold</label>
+          <input type="number" id="nsLow" value="70" min="40" max="100">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Complication ───────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <span data-en="COMPLICATION" data-de="KOMPLIKATION">COMPLICATION</span>
+      <span class="arrow">▶</span>
+    </div>
+    <div class="section-body">
+      <div class="field">
+        <label data-en="Primary complication (5-digit box)" data-de="Primäre Komplikation (5-stellig)">Primary complication</label>
+        <select id="complication">
+          <option value="0" data-en="CGM / Blood Glucose"      data-de="CGM / Blutzucker">CGM / Blood Glucose</option>
+          <option value="1" data-en="Step Count"               data-de="Schritte">Step Count</option>
+          <option value="2" data-en="Heart Rate (BPM)"         data-de="Herzrate (BPM)">Heart Rate (BPM)</option>
+          <option value="3" data-en="Weather Temperature"      data-de="Temperatur">Weather Temperature</option>
+          <option value="4" data-en="Battery %"                data-de="Akku %">Battery %</option>
+          <option value="5" data-en="Alternate Date"           data-de="Alternatives Datum">Alternate Date</option>
+        </select>
+        <p class="hint" data-en="Shake the watch to preview all complications for 5 s." data-de="Uhr schütteln, um alle Komplikationen 5 Sek. lang durchzublättern.">Shake watch to cycle through all complications for 5 seconds.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Labels ─────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <span data-en="LABELS" data-de="BESCHRIFTUNGEN">LABELS</span>
+      <span class="arrow">▶</span>
+    </div>
+    <div class="section-body">
+      <div class="row2">
+        <div class="field">
+          <label data-en="Top left (e.g. QUARTZ)" data-de="Oben links (z.B. QUARTZ)">Top left</label>
+          <input type="text" id="labelTopLeft" value="QUARTZ" maxlength="10">
+        </div>
+        <div class="field">
+          <label data-en="Top right (e.g. TIME 2)" data-de="Oben rechts (z.B. TIME 2)">Top right</label>
+          <input type="text" id="labelTopRight" value="TIME 2" maxlength="10">
+        </div>
+      </div>
+      <div class="field">
+        <label data-en="Bottom banner" data-de="Unterer Banner">Bottom banner</label>
+        <input type="text" id="labelBottom" value="CGM Enabled" maxlength="20">
+        <p class="hint" data-en="Shown in the accent strip when CGM is active. Errors (no URL, no connection) override this." data-de="Wird im Akzent-Streifen angezeigt wenn CGM aktiv. Fehler (kein URL, keine Verbindung) überschreiben den Text.">Shown in accent strip. Errors override this automatically.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Date & Time ────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <span data-en="DATE & TIME" data-de="DATUM & UHRZEIT">DATE & TIME</span>
+      <span class="arrow">▶</span>
+    </div>
+    <div class="section-body">
+      <div class="row2">
+        <div class="field">
+          <label data-en="Date format" data-de="Datumsformat">Date format</label>
+          <select id="dateFormat">
+            <option value="0">DD-MM</option>
+            <option value="1">MM-DD</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-en="First weekday" data-de="Erster Wochentag">First weekday</label>
+          <select id="firstWeekday">
+            <option value="0" data-en="Sunday" data-de="Sonntag">Sunday</option>
+            <option value="1" data-en="Monday" data-de="Montag">Monday</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Colors ─────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <span data-en="COLORS" data-de="FARBEN">COLORS</span>
+      <span class="arrow">▶</span>
+    </div>
+    <div class="section-body">
+      <p class="hint" style="margin-bottom:12px" data-en="Colors apply on Pebble Time / Time 2 (color display). Black &amp; white on aplite/diorite." data-de="Farben nur auf Pebble Time / Time 2. Aplite/Diorite zeigen immer Schwarz/Weiß.">Colors apply on Pebble Time / Time 2 (color display) only.</p>
+      <div class="color-grid">
+
+        <div class="field">
+          <label data-en="Background" data-de="Hintergrund">Background</label>
+          <div class="color-row">
+            <input type="color"  id="colorBgPicker"  value="#FFFFFF" oninput="syncColor('colorBg','colorBgPicker')">
+            <input type="text"   id="colorBg"         value="#FFFFFF" maxlength="7" oninput="syncColor('colorBgPicker','colorBg',true)">
+          </div>
+        </div>
+
+        <div class="field">
+          <label data-en="Foreground / Text" data-de="Vordergrund / Text">Foreground</label>
+          <div class="color-row">
+            <input type="color"  id="colorFgPicker"  value="#000055" oninput="syncColor('colorFg','colorFgPicker')">
+            <input type="text"   id="colorFg"         value="#000055" maxlength="7" oninput="syncColor('colorFgPicker','colorFg',true)">
+          </div>
+        </div>
+
+        <div class="field">
+          <label data-en="Accent (pebble label, banner)" data-de="Akzent (Label, Banner)">Accent</label>
+          <div class="color-row">
+            <input type="color"  id="colorAccentPicker" value="#FFAA00" oninput="syncColor('colorAccent','colorAccentPicker')">
+            <input type="text"   id="colorAccent"        value="#FFAA00" maxlength="7" oninput="syncColor('colorAccentPicker','colorAccent',true)">
+          </div>
+        </div>
+
+        <div class="field">
+          <label data-en="CGM in range" data-de="CGM im Bereich">CGM OK</label>
+          <div class="color-row">
+            <input type="color"  id="colorCgmOkPicker" value="#00AA00" oninput="syncColor('colorCgmOk','colorCgmOkPicker')">
+            <input type="text"   id="colorCgmOk"        value="#00AA00" maxlength="7" oninput="syncColor('colorCgmOkPicker','colorCgmOk',true)">
+          </div>
+        </div>
+
+        <div class="field">
+          <label data-en="CGM high" data-de="CGM hoch">CGM High</label>
+          <div class="color-row">
+            <input type="color"  id="colorCgmHighPicker" value="#FFAA00" oninput="syncColor('colorCgmHigh','colorCgmHighPicker')">
+            <input type="text"   id="colorCgmHigh"        value="#FFAA00" maxlength="7" oninput="syncColor('colorCgmHighPicker','colorCgmHigh',true)">
+          </div>
+        </div>
+
+        <div class="field">
+          <label data-en="CGM low" data-de="CGM niedrig">CGM Low</label>
+          <div class="color-row">
+            <input type="color"  id="colorCgmLowPicker" value="#FF0000" oninput="syncColor('colorCgmLow','colorCgmLowPicker')">
+            <input type="text"   id="colorCgmLow"        value="#FF0000" maxlength="7" oninput="syncColor('colorCgmLowPicker','colorCgmLow',true)">
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Buttons ─────────────────────────────────────────────── -->
+  <div class="btn-row">
+    <button class="btn btn-cancel" onclick="cancel()" data-en="CANCEL" data-de="ABBRECHEN">CANCEL</button>
+    <button class="btn btn-save"   onclick="save()"   data-en="SAVE &amp; CLOSE" data-de="SPEICHERN">SAVE &amp; CLOSE</button>
+  </div>
+
+  <!-- Donate ──────────────────────────────────────────────── -->
+  <div class="donate">
+    <span data-en="If CasioCGM is useful, a small donation is appreciated ♥" data-de="Wenn CasioCGM nützlich ist, freue ich mich über eine kleine Spende ♥">If CasioCGM is useful, a small donation is appreciated ♥</span><br>
+    <a href="https://paypal.me/simongutjahr" target="_blank" rel="noopener">Donate via PayPal</a>
+  </div>
+
+  <div class="footer">CASIOCGM &bull; PEBBLE WATCHFACE &bull; MIT LICENSE</div>
+
+</div><!-- /container -->
+
+<script>
+// ── i18n ──────────────────────────────────────────────────────────────────
+var lang = 'en';
+
+function toggleLang() {
+  lang = (lang === 'en') ? 'de' : 'en';
+  document.getElementById('lang-btn').textContent = (lang === 'en') ? 'DE' : 'EN';
+  document.querySelectorAll('[data-en]').forEach(function(el) {
+    // skip inputs (value would be overwritten)
+    if (el.tagName === 'INPUT' || el.tagName === 'BUTTON') {
+      el.textContent = el.getAttribute('data-' + lang);
+    } else {
+      el.textContent = el.getAttribute('data-' + lang);
+    }
+  });
+  document.querySelectorAll('option[data-en]').forEach(function(el) {
+    el.textContent = el.getAttribute('data-' + lang);
+  });
+}
+
+// ── Section toggle ────────────────────────────────────────────────────────
+function toggleSection(header) {
+  header.classList.toggle('open');
+  header.nextElementSibling.classList.toggle('open');
+}
+
+// ── Color sync ────────────────────────────────────────────────────────────
+function syncColor(targetId, sourceId, fromText) {
+  var src = document.getElementById(sourceId);
+  var tgt = document.getElementById(targetId);
+  if (fromText) {
+    var v = src.value;
+    if (/^#[0-9A-Fa-f]{6}$/.test(v)) tgt.value = v;
+  } else {
+    tgt.value = src.value.toUpperCase();
+  }
+}
+
+// ── Load existing config from Pebble URL query param ─────────────────────
+function loadConfig() {
+  var raw = new URLSearchParams(window.location.search).get('config');
+  if (!raw) return;
+  try {
+    var cfg = JSON.parse(decodeURIComponent(raw));
+
+    function setVal(id, v) {
+      var el = document.getElementById(id);
+      if (el && v !== undefined && v !== null) el.value = v;
+    }
+
+    setVal('nsUrl',         cfg.nsUrl);
+    setVal('nsToken',       cfg.nsToken);
+    setVal('nsUnits',       cfg.nsUnits);
+    setVal('nsHigh',        cfg.nsHigh);
+    setVal('nsLow',         cfg.nsLow);
+    setVal('nsStaleMin',    cfg.nsStaleMin);
+    setVal('complication',  cfg.complication);
+    setVal('labelTopLeft',  cfg.labelTopLeft);
+    setVal('labelTopRight', cfg.labelTopRight);
+    setVal('labelBottom',   cfg.labelBottom);
+    setVal('dateFormat',    cfg.dateFormat);
+    setVal('firstWeekday',  cfg.firstWeekday);
+
+    // Colors stored as #RRGGBB strings
+    var colorFields = ['colorBg', 'colorFg', 'colorAccent', 'colorCgmOk', 'colorCgmHigh', 'colorCgmLow'];
+    colorFields.forEach(function(f) {
+      var v = cfg[f];
+      if (v === undefined || v === null) return;
+      // Support both stored hex strings and legacy integer values
+      var hex;
+      if (typeof v === 'number') {
+        hex = '#' + v.toString(16).padStart(6, '0').toUpperCase();
+      } else {
+        hex = String(v).charAt(0) === '#' ? String(v).toUpperCase() : '#' + String(v).toUpperCase();
+      }
+      setVal(f, hex);
+      setVal(f + 'Picker', hex);
+    });
+  } catch (e) {
+    console.error('CasioCGM: config parse error', e);
+  }
+}
+
+// ── Save – send config back to Pebble ────────────────────────────────────
+// Colors are stored as hex strings (#RRGGBB).
+// index.js sendConfig() converts them to integers when sending AppMessage.
+function save() {
+  var cfg = {
+    nsUrl:         document.getElementById('nsUrl').value.trim(),
+    nsToken:       document.getElementById('nsToken').value.trim(),
+    nsUnits:       document.getElementById('nsUnits').value,
+    nsHigh:        document.getElementById('nsHigh').value,
+    nsLow:         document.getElementById('nsLow').value,
+    nsStaleMin:    document.getElementById('nsStaleMin').value,
+    complication:  document.getElementById('complication').value,
+    labelTopLeft:  document.getElementById('labelTopLeft').value,
+    labelTopRight: document.getElementById('labelTopRight').value,
+    labelBottom:   document.getElementById('labelBottom').value,
+    dateFormat:    document.getElementById('dateFormat').value,
+    firstWeekday:  document.getElementById('firstWeekday').value,
+    // Colors as hex strings – index.js converts to int for AppMessage
+    colorBg:       document.getElementById('colorBg').value,
+    colorFg:       document.getElementById('colorFg').value,
+    colorAccent:   document.getElementById('colorAccent').value,
+    colorCgmOk:    document.getElementById('colorCgmOk').value,
+    colorCgmHigh:  document.getElementById('colorCgmHigh').value,
+    colorCgmLow:   document.getElementById('colorCgmLow').value
+  };
+
+  var encoded = encodeURIComponent(JSON.stringify(cfg));
+  document.location = 'pebblejs://close#' + encoded;
+}
+
+function cancel() {
+  document.location = 'pebblejs://close#CANCELLED';
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+loadConfig();
+</script>
+</body>
+</html>

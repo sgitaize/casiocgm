@@ -1,0 +1,31 @@
+# Pebble build output
+build/
+.lock-waf_*
+
+# Compiled font caches – always rebuilt from .ttf source, never commit
+*.reso
+
+# FTP credentials – NEVER commit
+.ftpconfig
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Env / secrets
+.env
+*.key
+
+# Logs
+*.log
