@@ -168,8 +168,7 @@ Mapping in `app.js` `trendArrow()` function — maps Nightscout `direction` stri
 
 Script: `deploy_ftp.sh`
 - Uploads `config/` directory to `casiocgm.aize-it.de/config/` via FTP
-- Host: `hosting139074.a2e5b.netcup.net`
-- User: `casiopebble`
+- Credentials in seperate ftpconfig File
 - Run: `bash deploy_ftp.sh`
 
 ---
