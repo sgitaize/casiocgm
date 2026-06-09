@@ -279,17 +279,17 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   // ── Y anchors (ref H=168) ─────────────────────────────────────────────
   // Band height = SY(4) ≈ 5px on emery. LCD enlarged to give more room for
   // bigger fonts. Time row = SY(70) ≈ 95px on emery (fits DSEG14_148).
-  int y_rs1     = SY(15);   // top of top red band (black label: 0..y_rs1)
-  int y_lcd     = SY(19);   // outer LCD top (band height = SY(4) ≈ 5px)
-  int y_in      = SY(23);   // inner LCD rect top
-  int y_dr      = SY(25);   // date+comp row start
-  int y_time    = SY(55);   // HH:MM start (date/comp row = SY(30) ≈ 41px on emery)
-  int y_info    = SY(125);  // info strip (time row = SY(70) ≈ 95px on emery)
-  int y_in_end  = SY(135);  // inner LCD bottom
-  int y_lcd_end = SY(139);  // outer LCD bottom
-  int y_cgs     = SY(139);  // CGM status area start (one-line layout)
-  int y_rs2     = SY(155);  // bottom red band start (band height = SY(4))
-  int y_ban     = SY(159);  // E-Paper banner start
+  int y_rs1     = SY(13);   // top of top red band (black label: 0..y_rs1)
+  int y_lcd     = SY(30);   // outer LCD top; gap SY(13) above = button-label zone
+  int y_in      = SY(34);   // inner LCD rect top
+  int y_dr      = SY(36);   // date+comp row start
+  int y_time    = SY(61);   // HH:MM zone start (date/comp row = SY(25) ≈ 34px on emery)
+  int y_info    = SY(112);  // info strip start (time zone = SY(51) ≈ 69px on emery)
+  int y_in_end  = SY(122);  // inner LCD bottom; info strip = SY(10)
+  int y_lcd_end = SY(126);  // outer LCD bottom
+  int y_cgs     = SY(126);  // CGM status area start
+  int y_rs2     = SY(148);  // bottom red band start
+  int y_ban     = SY(152);  // E-Paper banner start
 
   // ── Radii ─────────────────────────────────────────────────────────────
   int lrad = SX(8);   // outer LCD rect corners
@@ -334,13 +334,36 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
                      GRect(W-SX(76), SY(1), SX(72), y_rs1-SY(1)),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
 
-  // ── 3. Top red band – very thin (SY(4) ≈ 5px), GCornersAll: full pill
-  //   shape so both top and bottom edges are rounded into a smooth arc.
+  // ── 3. Top red band – fixed SY(4) ≈ 5 px thin pill
   {
-    int top_band_h = y_lcd - y_rs1;  // ≈ SY(4)
-    int srad = top_band_h / 2;       // half-height → perfect pill end-caps
+    int top_band_h = SY(4);
+    int srad = top_band_h / 2;
     graphics_context_set_fill_color(ctx, col_red);
     graphics_fill_rect(ctx, GRect(0, y_rs1, W, top_band_h), srad, GCornersAll);
+  }
+
+  // ── 4. Button labels – ◄LIGHT · pebble · UP► in gap above LCD ────────
+  {
+    int bl_y  = y_rs1 + SY(4);          // just below top red band
+    int bl_h  = y_lcd - bl_y;           // ≈ SY(13) = 17.7 px
+    int bl_cy = bl_y + bl_h / 2;
+    // ◄LIGHT
+    draw_arrow(ctx, GPoint(SX(4) + tri_s, bl_cy), tri_s, false, GColorWhite);
+    graphics_context_set_text_color(ctx, GColorWhite);
+    graphics_draw_text(ctx, "LIGHT", f_tiny,
+                       GRect(SX(4)+tri_s*2+SX(2), bl_y, SX(30), bl_h),
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+    // "pebble" (accent color, centered)
+    graphics_context_set_text_color(ctx, col_acc);
+    graphics_draw_text(ctx, "pebble", f_tiny,
+                       GRect(SX(42), bl_y, W-SX(84), bl_h),
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+    // UP►
+    graphics_context_set_text_color(ctx, GColorWhite);
+    graphics_draw_text(ctx, "UP", f_tiny,
+                       GRect(W-SX(4)-tri_s*2-SX(18), bl_y, SX(16), bl_h),
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
+    draw_arrow(ctx, GPoint(W-SX(4), bl_cy), tri_s, true, GColorWhite);
   }
 
   // ── 5. Outer LCD: col_fg fill + thick col_bg inner fill ──────────────
@@ -369,9 +392,9 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   if (s_date_format==0) snprintf(date_str,sizeof(date_str),"%02u-%02u",dd,dm);
   else                  snprintf(date_str,sizeof(date_str),"%02u-%02u",dm,dd);
 
-  // Date – full comp row height, extra left margin for breathing room
+  // Date – pushed down SY(5) so LECO_20 baseline aligns with comp LECO_26
   lcd_text(ctx, "88-88", date_str, f_date,
-           GRect(x_l + SX(3), y_dr, date_w - SX(3), dr_h),
+           GRect(x_l + SX(3), y_dr + SY(5), date_w - SX(3), dr_h - SY(5)),
            col_ghost, col_fg, GTextAlignmentCenter);
 
   // ── 8. Comp box – primary row (top 2/3) + secondary row (bottom 1/3) ──
@@ -417,9 +440,12 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
 
 #if defined(PBL_PLATFORM_EMERY)
   {
-    // 52 px DSEG14: "HH:MM" advance ≈ 178 px ≤ 183 px available → fits with room to spare
+    // Center 52 px DSEG14 vertically between comp bottom and LCD bottom
+    // SY(42) ≈ 57 px — slightly taller than the 52 px glyph for breathing room
+    int tdy = y_time + (y_in_end - y_time - SY(42)) / 2;
+    if (tdy < y_time) tdy = y_time;
     lcd_text(ctx, "88:88", time_str, f_dseg_lg,
-             GRect(ix + SX(1), y_time, iw - SX(2), time_h),
+             GRect(ix + SX(1), tdy, iw - SX(2), y_info - tdy),
              col_ghost, col_fg, GTextAlignmentLeft);
   }
 #else
@@ -534,7 +560,7 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
       snprintf(cgs_txt, sizeof(cgs_txt), "CGM Offline");
       cgs_col = color_from_int(s_color_cgm_low);
     } else {
-      snprintf(cgs_txt, sizeof(cgs_txt), "CGM Enabled");
+      snprintf(cgs_txt, sizeof(cgs_txt), "CGM Active");
       cgs_col = color_from_int(s_color_cgm_ok);
     }
     graphics_context_set_text_color(ctx, cgs_col);
@@ -565,13 +591,10 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     graphics_fill_rect(ctx, GRect(0, y_rs2, W, bot_h), brad, GCornersAll);
   }
 
-  // ── 15. E-Paper banner ────────────────────────────────────────────────
+  // ── 15. E-Paper banner – accent-colour text on black, no fill
   int ban_h = H - y_ban;
-  graphics_context_set_fill_color(ctx, col_acc);
-  graphics_fill_rect(ctx, GRect(0, y_ban, W, ban_h), 0, GCornerNone);
-  graphics_context_set_text_color(ctx, GColorBlack);
-  const char *ban_text = (strlen(s_label_bot) > 0) ? s_label_bot : "E-PAPER DISPLAY";
-  graphics_draw_text(ctx, ban_text, f_tiny,
+  graphics_context_set_text_color(ctx, col_acc);
+  graphics_draw_text(ctx, "E-PAPER DISPLAY", f_tiny,
                      GRect(SX(4), y_ban, W-SX(8), ban_h),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 
