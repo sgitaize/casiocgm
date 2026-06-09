@@ -138,6 +138,29 @@ static void lcd_text(GContext *ctx, const char *ghost, const char *real,
                      GTextOverflowModeTrailingEllipsis, align, NULL);
 }
 
+// Casio-style tapered band: hexagon shape, tapers to a centre-height point
+// on each edge. 20% of width on each side forms the diagonal taper.
+static void draw_casio_band(GContext *ctx, int y_top, int band_h, int W,
+                            GColor col) {
+  int cy = y_top + band_h / 2;
+  int cw = W / 5;   // 20 % of width per side
+  GPoint pts[6] = {
+    GPoint(0,     cy),
+    GPoint(cw,    y_top),
+    GPoint(W-cw,  y_top),
+    GPoint(W,     cy),
+    GPoint(W-cw,  y_top + band_h),
+    GPoint(cw,    y_top + band_h),
+  };
+  GPathInfo info = {6, pts};
+  GPath *gp = gpath_create(&info);
+  if (gp) {
+    graphics_context_set_fill_color(ctx, col);
+    gpath_draw_filled(ctx, gp);
+    gpath_destroy(gp);
+  }
+}
+
 // Draw a small arrow (◄ or ►) using lines only – no heap alloc in draw path.
 // tip = the pointy vertex; half_h = half the base height; right = ► else ◄
 static void draw_arrow(GContext *ctx, GPoint tip, int half_h, bool right,
@@ -255,6 +278,7 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
 
   // ── Fonts ─────────────────────────────────────────────────────────────
   GFont f_tiny = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
+  GFont f_lbl  = fonts_get_system_font(FONT_KEY_GOTHIC_09);  // button labels
   GFont f_sm   = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD); (void)f_sm;
 #if defined(PBL_PLATFORM_EMERY)
   // 52 px DSEG14 for time; LECO_20 for date (fits 73 px slot); LECO_26 for comp
@@ -334,36 +358,48 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
                      GRect(W-SX(76), SY(1), SX(72), y_rs1-SY(1)),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
 
-  // ── 3. Top red band – fixed SY(4) ≈ 5 px thin pill
-  {
-    int top_band_h = SY(4);
-    int srad = top_band_h / 2;
-    graphics_context_set_fill_color(ctx, col_red);
-    graphics_fill_rect(ctx, GRect(0, y_rs1, W, top_band_h), srad, GCornersAll);
-  }
+  // ── 3. Top red band – Casio-style: tapers to a point at each screen edge,
+  //   full height across the centre 60 %, 20 % taper on each side.
+  draw_casio_band(ctx, y_rs1, SY(4), W, col_red);
 
-  // ── 4. Button labels – ◄LIGHT · pebble · UP► in gap above LCD ────────
+  // ── 4. Button labels – ◄LIGHT · pebble · UP► / SELECT► ──────────────
+  //   Font: Gothic_09 (≈ 30 % smaller than Gothic_14) so UP and SELECT
+  //   stack in two rows.  Row height = bl_h/2; on narrow platforms only
+  //   UP may show if bl_h < 18 px.
   {
     int bl_y  = y_rs1 + SY(4);          // just below top red band
-    int bl_h  = y_lcd - bl_y;           // ≈ SY(13) = 17.7 px
+    int bl_h  = y_lcd - bl_y;           // zone height (ref SY(13) ≈ 18 px emery)
+    int row_h = bl_h / 2;               // height of each stacked row
+    int tri_b = 2;                       // small fixed-size arrow for button zone
+
+    // ◄LIGHT – left, vertically centred in full zone
     int bl_cy = bl_y + bl_h / 2;
-    // ◄LIGHT
-    draw_arrow(ctx, GPoint(SX(4) + tri_s, bl_cy), tri_s, false, GColorWhite);
+    draw_arrow(ctx, GPoint(SX(4) + tri_b, bl_cy), tri_b, false, GColorWhite);
     graphics_context_set_text_color(ctx, GColorWhite);
-    graphics_draw_text(ctx, "LIGHT", f_tiny,
-                       GRect(SX(4)+tri_s*2+SX(2), bl_y, SX(30), bl_h),
+    graphics_draw_text(ctx, "LIGHT", f_lbl,
+                       GRect(SX(4)+tri_b*2+SX(1), bl_y+(bl_h-9)/2, SX(32), 9),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-    // "pebble" (accent color, centered)
+
+    // "pebble" – centre, vertically centred (kept slightly larger for brand)
     graphics_context_set_text_color(ctx, col_acc);
-    graphics_draw_text(ctx, "pebble", f_tiny,
-                       GRect(SX(42), bl_y, W-SX(84), bl_h),
+    graphics_draw_text(ctx, "pebble", f_lbl,
+                       GRect(SX(42), bl_y+(bl_h-9)/2, W-SX(84), 9),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-    // UP►
+
+    // UP► – top row, right side
+    int cy_up  = bl_y + row_h / 2;
     graphics_context_set_text_color(ctx, GColorWhite);
-    graphics_draw_text(ctx, "UP", f_tiny,
-                       GRect(W-SX(4)-tri_s*2-SX(18), bl_y, SX(16), bl_h),
+    graphics_draw_text(ctx, "UP", f_lbl,
+                       GRect(W-SX(4)-tri_b*2-SX(16), bl_y, SX(14), row_h),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
-    draw_arrow(ctx, GPoint(W-SX(4), bl_cy), tri_s, true, GColorWhite);
+    draw_arrow(ctx, GPoint(W-SX(4), cy_up), tri_b, true, GColorWhite);
+
+    // SELECT► – bottom row, right side (only renders if row_h >= 9)
+    int cy_sel = bl_y + row_h + row_h / 2;
+    graphics_draw_text(ctx, "SELECT", f_lbl,
+                       GRect(W-SX(4)-tri_b*2-SX(38), bl_y+row_h, SX(36), row_h),
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
+    draw_arrow(ctx, GPoint(W-SX(4), cy_sel), tri_b, true, GColorWhite);
   }
 
   // ── 5. Outer LCD: col_fg fill + thick col_bg inner fill ──────────────
@@ -574,35 +610,38 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
                        GRect(SX(74), y_cgs, SX(20), cgs_h), col_cgm);
     }
 
-    // DOWN button label (right): text + triangle
+    // DOWN button label (right): text + triangle — same Gothic_09 as other labels
     graphics_context_set_text_color(ctx, GColorWhite);
-    graphics_draw_text(ctx, "DOWN", f_tiny,
-                       GRect(W-SX(4)-tri_s*2-SX(34), y_cgs, SX(32), cgs_h),
+    graphics_draw_text(ctx, "DOWN", f_lbl,
+                       GRect(W-SX(4)-tri_s*2-SX(34), y_cgs+(cgs_h-9)/2, SX(32), 9),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
     draw_arrow(ctx, GPoint(W-SX(4), cgs_cy), tri_s, true, GColorWhite);
   }
 
-  // ── 14. Bottom red band – very thin (SY(4) ≈ 5px), GCornersAll: same
-  //   pill shape as top band for visual symmetry.
-  {
-    int bot_h = y_ban - y_rs2;  // ≈ SY(4)
-    int brad  = bot_h / 2;
-    graphics_context_set_fill_color(ctx, col_red);
-    graphics_fill_rect(ctx, GRect(0, y_rs2, W, bot_h), brad, GCornersAll);
-  }
+  // ── 14. Bottom red band – same Casio taper shape as top band
+  draw_casio_band(ctx, y_rs2, y_ban - y_rs2, W, col_red);
 
-  // ── 15. E-Paper banner – accent-colour text on black, no fill
+  // ── 15. E-Paper banner – yellow text on black (Casio-authentic LCD label)
   int ban_h = H - y_ban;
-  graphics_context_set_text_color(ctx, col_acc);
+#ifdef PBL_COLOR
+  graphics_context_set_text_color(ctx, GColorYellow);
+#else
+  graphics_context_set_text_color(ctx, GColorWhite);
+#endif
   graphics_draw_text(ctx, "E-PAPER DISPLAY", f_tiny,
                      GRect(SX(4), y_ban, W-SX(8), ban_h),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 
-  // ── 16. Case seam lines (color only) ─────────────────────────────────
+  // ── 16. Case seam lines – draw only over the flat centre portion of each
+  //   Casio band (between the 20 % taper zones) so they don't float on black.
 #ifdef PBL_COLOR
-  graphics_context_set_fill_color(ctx, GColorWhite);
-  graphics_fill_rect(ctx, GRect(0, y_rs1,   W, 1), 0, GCornerNone);  // top of red band
-  graphics_fill_rect(ctx, GRect(0, y_ban-1, W, 1), 0, GCornerNone);  // bottom of bottom band
+  {
+    int seam_x0 = W / 5;
+    int seam_x1 = W - seam_x0;
+    graphics_context_set_fill_color(ctx, GColorWhite);
+    graphics_fill_rect(ctx, GRect(seam_x0, y_rs1,   seam_x1-seam_x0, 1), 0, GCornerNone);
+    graphics_fill_rect(ctx, GRect(seam_x0, y_ban-1, seam_x1-seam_x0, 1), 0, GCornerNone);
+  }
 #endif
 
 #undef SY
