@@ -293,7 +293,19 @@
           <option value="4" data-en="Battery %"                data-de="Akku %">Battery %</option>
           <option value="5" data-en="Alternate Date"           data-de="Alternatives Datum">Alternate Date</option>
         </select>
-        <p class="hint" data-en="Shake the watch to preview all complications for 5 s." data-de="Uhr schütteln, um alle Komplikationen 5 Sek. lang durchzublättern.">Shake watch to cycle through all complications for 5 seconds.</p>
+        <p class="hint" data-en="Shake the watch to cycle complications for 5 s." data-de="Uhr schütteln, um Komplikationen 5 Sek. lang durchzublättern.">Shake watch to cycle through all complications for 5 seconds.</p>
+      </div>
+      <div class="field">
+        <label data-en="Shake – 2nd row data" data-de="Schütteln – 2. Zeile">Shake – 2nd row</label>
+        <select id="shake2nd">
+          <option value="0" data-en="CGM Delta (default)" data-de="CGM Delta (Standard)">CGM Delta (default)</option>
+          <option value="1" data-en="Step Count"          data-de="Schritte">Step Count</option>
+          <option value="2" data-en="Heart Rate"          data-de="Herzrate">Heart Rate</option>
+          <option value="3" data-en="Battery %"           data-de="Akku %">Battery %</option>
+          <option value="4" data-en="Weather Temp"        data-de="Temperatur">Weather Temp</option>
+          <option value="5" data-en="None (keep date)"    data-de="Keine (Datum bleibt)">None (keep date)</option>
+        </select>
+        <p class="hint" data-en="Shown in the date row while shaking. Lets you quickly see delta, steps, etc." data-de="Wird beim Schütteln in der Datumszeile angezeigt.">Shown in the date row while shaking.</p>
       </div>
     </div>
   </div>
@@ -344,6 +356,23 @@
             <option value="0" data-en="Sunday" data-de="Sonntag">Sunday</option>
             <option value="1" data-en="Monday" data-de="Montag">Monday</option>
           </select>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label data-en="Weekday language" data-de="Wochentag-Sprache">Weekday language</label>
+          <select id="wdayLang">
+            <option value="0" data-en="English (S M T W T F S)" data-de="Englisch (S M T W T F S)">English (S M T W T F S)</option>
+            <option value="1" data-en="German (S M D M D F S)" data-de="Deutsch (S M D M D F S)">German (S M D M D F S)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-en="Seconds display" data-de="Sekundenanzeige">Seconds</label>
+          <select id="showSeconds">
+            <option value="0" data-en="Show" data-de="Anzeigen">Show</option>
+            <option value="1" data-en="Hide" data-de="Ausblenden">Hide</option>
+          </select>
+          <p class="hint" data-en="Applies to non-emery platforms only." data-de="Nur auf Nicht-Emery-Plattformen.">Non-emery platforms only.</p>
         </div>
       </div>
     </div>
@@ -489,6 +518,9 @@ function loadConfig() {
     setVal('labelBottom',   cfg.labelBottom);
     setVal('dateFormat',    cfg.dateFormat);
     setVal('firstWeekday',  cfg.firstWeekday);
+    setVal('shake2nd',      cfg.shake2nd);
+    setVal('wdayLang',      cfg.wdayLang);
+    setVal('showSeconds',   cfg.showSeconds);
 
     // Colors stored as #RRGGBB strings
     var colorFields = ['colorBg', 'colorFg', 'colorAccent', 'colorCgmOk', 'colorCgmHigh', 'colorCgmLow'];
@@ -527,6 +559,9 @@ function save() {
     labelBottom:   document.getElementById('labelBottom').value,
     dateFormat:    document.getElementById('dateFormat').value,
     firstWeekday:  document.getElementById('firstWeekday').value,
+    shake2nd:      document.getElementById('shake2nd').value,
+    wdayLang:      document.getElementById('wdayLang').value,
+    showSeconds:   document.getElementById('showSeconds').value,
     // Colors as hex strings – index.js converts to int for AppMessage
     colorBg:       document.getElementById('colorBg').value,
     colorFg:       document.getElementById('colorFg').value,

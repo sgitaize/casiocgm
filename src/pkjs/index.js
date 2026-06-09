@@ -15,6 +15,9 @@ var K = {
   COLOR_CGM_OK:    9,  COLOR_CGM_HIGH: 10, COLOR_CGM_LOW:   11,
   COMPLICATION:    12, LABEL_TOP_LEFT: 13, LABEL_TOP_RIGHT: 14,
   LABEL_BOTTOM:    15, FIRST_WEEKDAY:  16, DATE_FORMAT:     17,
+  SHAKE_2ND:       18,
+  WDAY_LANG:       19,
+  SHOW_SECONDS:    20,
   CGM_VALUE:       50, CGM_DELTA:      51, CGM_TREND:       52,
   CGM_AGE:         53, STEPS:          54, HR:              55,
   WEATHER_TEMP:    56, WEATHER_ICON:   57, BATT_PCT:        58
@@ -63,6 +66,9 @@ function sendConfig() {
   msg[K.LABEL_BOTTOM]    = config.labelBottom    || 'CGM Enabled';
   msg[K.FIRST_WEEKDAY]   = parseInt(config.firstWeekday) || 0;
   msg[K.DATE_FORMAT]     = parseInt(config.dateFormat)   || 0;
+  msg[K.SHAKE_2ND]       = parseInt(config.shake2nd)     || 0;
+  msg[K.WDAY_LANG]       = parseInt(config.wdayLang)     || 0;
+  msg[K.SHOW_SECONDS]    = parseInt(config.showSeconds)  || 0;
 
   Pebble.sendAppMessage(msg, function() {
     console.log('[CasioCGM] Config sent');
@@ -72,16 +78,19 @@ function sendConfig() {
 }
 
 // ── Fetch Nightscout ──────────────────────────────────────────────────────
+// Uses the /pebble endpoint:
+//   GET <nsUrl>/pebble
+//   Response: {"bgs":[{"sgv":"108","trend":1,"direction":"DoubleUp",
+//               "datetime":1780980660000,"bgdelta":18,...}],...}
 function fetchNightscout() {
   var url = config.nsUrl;
   if (!url || url.length < 4) return;
 
-  // Ensure no trailing slash
+  // Remove trailing slash, then append /pebble
   url = url.replace(/\/$/, '');
-
-  var apiUrl = url + '/api/v1/entries/sgv.json?count=2';
+  var apiUrl = url + '/pebble';
   if (config.nsToken) {
-    apiUrl += '&token=' + config.nsToken;
+    apiUrl += '?token=' + config.nsToken;
   }
 
   var req = new XMLHttpRequest();
@@ -91,14 +100,13 @@ function fetchNightscout() {
     if (req.status === 200) {
       try {
         var data = JSON.parse(req.responseText);
-        if (!data || data.length === 0) return;
+        if (!data || !data.bgs || data.bgs.length === 0) return;
 
-        var entry  = data[0];
-        var prev   = data[1];
-        var sgv    = entry.sgv || entry.glucose || 0;
-        var delta  = prev ? (sgv - (prev.sgv || prev.glucose || sgv)) : 0;
-        var trend  = trendArrow(entry.direction || '');
-        var ageMs  = Date.now() - (entry.date || 0);
+        var bg     = data.bgs[0];
+        var sgv    = parseInt(bg.sgv)      || 0;
+        var delta  = parseInt(bg.bgdelta)  || 0;
+        var trend  = trendArrow(bg.direction || '');
+        var ageMs  = Date.now() - (bg.datetime || 0);
         var ageMin = Math.round(ageMs / 60000);
 
         // Convert to mmol if needed
@@ -118,7 +126,7 @@ function fetchNightscout() {
         msg[K.CGM_AGE]   = ageMin;
 
         Pebble.sendAppMessage(msg, function() {
-          console.log('[CasioCGM] CGM sent: ' + valStr + ' ' + trend);
+          console.log('[CasioCGM] CGM sent: ' + valStr + ' ' + trend + ' age=' + ageMin + 'min');
         }, function(e) {
           console.log('[CasioCGM] CGM send failed');
         });
