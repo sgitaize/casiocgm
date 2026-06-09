@@ -22,22 +22,7 @@
     },
     "capabilities": ["health", "configurable"],
     "resources": {
-      "media": [
-        {
-          "type": "font",
-          "name": "FONT_DSEG_25_BOLD",
-          "file": "fonts/DSEG14Classic-Bold.ttf",
-          "characterRegex": "[-0-9A-Z:. %]",
-          "size": 25
-        },
-        {
-          "type": "font",
-          "name": "FONT_DSEG_30_BOLD",
-          "file": "fonts/DSEG14Classic-Bold.ttf",
-          "characterRegex": "[-0-9A-Z:. %]",
-          "size": 30
-        }
-      ]
+      "media": []
     },
     "messageKeys": [
       "NS_URL",
@@ -58,6 +43,9 @@
       "LABEL_BOTTOM",
       "FIRST_WEEKDAY",
       "DATE_FORMAT",
+      "SHAKE_2ND",
+      "WDAY_LANG",
+      "SHOW_SECONDS",
       "CGM_VALUE",
       "CGM_DELTA",
       "CGM_TREND",
