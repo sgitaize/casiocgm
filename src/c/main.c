@@ -79,9 +79,10 @@ static int  s_batt_pct        = 100;
 
 // ── Custom fonts (color platforms; loaded in window_load) ─────────────────
 #ifdef PBL_COLOR
-static GFont s_font_d14_24 = NULL;  // DSEG14 24 px: date + comp rows
-static GFont s_font_d14_38 = NULL;  // DSEG14 38 px: time (non-emery color)
-static GFont s_font_d14_52 = NULL;  // DSEG14 52 px: time (emery only)
+static GFont s_font_d14_date    = NULL;  // DSEG14 32 px : date display
+static GFont s_font_d14_comp    = NULL;  // DSEG14 52 px : comp box primary row
+static GFont s_font_d14_time    = NULL;  // DSEG14 56 px : time on non-emery color
+static GFont s_font_d14_time_lg = NULL;  // DSEG14 80 px : time on emery
 #endif
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -214,18 +215,17 @@ static void battery_state_handler(BatteryChargeState state) {
 // ── DRAW ──────────────────────────────────────────────────────────────────
 //
 // Y layout (ref H=168, W=144):
-//   0..16    black label strip: QUARTZ (left) / TIME 2 (right)
-//  16..24    TOP RED BAND (SY(8) thin), GCornersTop (nubs point upward/outward)
-//  24..129   outer LCD rect (thick double-border, DSEG14 fonts)
-//    28..125   inner LCD rect (border includes info strip)
-//      30..62    date (left, DSEG14_24) + comp box (right: 2/3 primary + 1/3 secondary)
-//      62..112   HH:MM (DSEG14_52 on emery, DSEG14_38 on color)
+//   0..15    black label strip: QUARTZ (left) / TIME 2 (right)
+//  15..19    TOP RED BAND (SY(4)≈5px pill), GCornersAll
+//  19..139   outer LCD rect (thick double-border, DSEG14 fonts)
+//    23..135   inner LCD rect (border includes info strip)
+//      25..73    date (DSEG14_DATE 32px, left) + comp box (DSEG14_COMP 52px, right)
+//      73..123   HH:MM (DSEG14_TIME_LG 80px on emery, DSEG14_TIME 56px on color)
 //                right col: :SS (LECO) + graphic trend arrow
-//     112..125   info strip: BAT bar (left) | DOW letters (right)
-//             separator line at y_info
-//  129..153  CGM status: [No URL/No Conn/Active] [trend arrow] [DOWN►]
-//  153..161  BOTTOM RED BAND (SY(8) thin), GCornersBottom (nubs point downward/outward)
-//  161..168  E-Paper banner: accent bg, label_bot text
+//     123..135   info strip: BAT bar (left) | DOW letters (right)
+//  139..155  CGM status: [No URL/No Conn/Active] [trend arrow] [DOWN►]
+//  155..159  BOTTOM RED BAND (SY(4)≈5px pill), GCornersAll
+//  159..168  E-Paper banner: accent bg, label_bot text
 //
 static void canvas_update_proc(Layer *layer, GContext *ctx) {
   GRect bounds = layer_get_bounds(layer);
@@ -257,35 +257,45 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
       : color_from_int(s_color_cgm_low);
 
   // ── Fonts ─────────────────────────────────────────────────────────────
-  // f_date is used for date AND comp primary row (both DSEG14_24 on color)
   GFont f_tiny = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
   GFont f_sm   = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD); (void)f_sm;
 #if defined(PBL_PLATFORM_EMERY)
-  GFont f_dseg_lg = s_font_d14_52 ? s_font_d14_52 : fonts_get_system_font(FONT_KEY_LECO_60_BOLD_NUMBERS_AM_PM);
+  GFont f_dseg_lg = s_font_d14_time_lg ? s_font_d14_time_lg
+                  : fonts_get_system_font(FONT_KEY_LECO_60_BOLD_NUMBERS_AM_PM);
   GFont f_dseg_sm = NULL; (void)f_dseg_sm;
-  GFont f_date    = s_font_d14_24 ? s_font_d14_24 : fonts_get_system_font(FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM);
+  GFont f_date    = s_font_d14_date ? s_font_d14_date
+                  : fonts_get_system_font(FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM);
+  GFont f_comp    = s_font_d14_comp ? s_font_d14_comp
+                  : fonts_get_system_font(FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM);
 #elif defined(PBL_COLOR)
-  GFont f_dseg_lg = s_font_d14_38 ? s_font_d14_38 : fonts_get_system_font(FONT_KEY_LECO_38_BOLD_NUMBERS);
+  GFont f_dseg_lg = s_font_d14_time ? s_font_d14_time
+                  : fonts_get_system_font(FONT_KEY_LECO_38_BOLD_NUMBERS);
   GFont f_dseg_sm = fonts_get_system_font(FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM);
-  GFont f_date    = s_font_d14_24 ? s_font_d14_24 : fonts_get_system_font(FONT_KEY_LECO_20_BOLD_NUMBERS);
+  GFont f_date    = s_font_d14_date ? s_font_d14_date
+                  : fonts_get_system_font(FONT_KEY_LECO_20_BOLD_NUMBERS);
+  GFont f_comp    = s_font_d14_comp ? s_font_d14_comp
+                  : fonts_get_system_font(FONT_KEY_LECO_20_BOLD_NUMBERS);
 #else
   GFont f_dseg_lg = fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
   GFont f_dseg_sm = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
   GFont f_date    = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+  GFont f_comp    = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
 #endif
 
   // ── Y anchors (ref H=168) ─────────────────────────────────────────────
-  int y_rs1     = SY(16);   // top of top red band (black label strip: 0..y_rs1)
-  int y_lcd     = SY(24);   // outer LCD rect top (top band height = SY(8) ≈ 11px)
-  int y_in      = SY(28);   // inner LCD rect top
-  int y_dr      = SY(30);   // date+comp row start
-  int y_time    = SY(62);   // HH:MM start
-  int y_info    = SY(112);  // info strip start (separator line here)
-  int y_in_end  = SY(125);  // inner LCD bottom (info strip included)
-  int y_lcd_end = SY(129);  // outer LCD bottom
-  int y_cgs     = SY(129);  // CGM status area start (one-line layout)
-  int y_rs2     = SY(153);  // bottom red band start (band height = SY(8) ≈ 11px)
-  int y_ban     = SY(161);  // E-Paper banner start
+  // Band height = SY(4) ≈ 5px on emery. LCD enlarged to give more room for
+  // bigger fonts. Time row = SY(50) ≈ 68px on emery (fits DSEG14_80).
+  int y_rs1     = SY(15);   // top of top red band (black label: 0..y_rs1)
+  int y_lcd     = SY(19);   // outer LCD top (band height = SY(4) ≈ 5px)
+  int y_in      = SY(23);   // inner LCD rect top
+  int y_dr      = SY(25);   // date+comp row start
+  int y_time    = SY(73);   // HH:MM start (date/comp row = SY(48))
+  int y_info    = SY(123);  // info strip (time row = SY(50) ≈ 68px on emery)
+  int y_in_end  = SY(135);  // inner LCD bottom
+  int y_lcd_end = SY(139);  // outer LCD bottom
+  int y_cgs     = SY(139);  // CGM status area start (one-line layout)
+  int y_rs2     = SY(155);  // bottom red band start (band height = SY(4))
+  int y_ban     = SY(159);  // E-Paper banner start
 
   // ── Radii ─────────────────────────────────────────────────────────────
   int lrad = SX(8);   // outer LCD rect corners
@@ -296,11 +306,11 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   int lw = W - SX(2);
   int ix = lx + SX(4);
   int iw = lw - SX(8);
-  int x_l = ix + SX(1);        // inner content left
-  int x_r = ix + iw - SX(1);   // inner content right
+  int x_l = ix + SX(3);        // inner content left (SX(3) gives visible breathing room)
+  int x_r = ix + iw - SX(2);   // inner content right
 
   // Comp box: fixed width at the right of the date row
-  int comp_w = SX(68);
+  int comp_w = SX(74);          // wide enough for DSEG14_52 "8888" + arrow
   int comp_x = x_r - comp_w;
   int date_w = comp_x - x_l - SX(2);
 
@@ -332,13 +342,13 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
                      GRect(W-SX(76), SY(1), SX(72), y_rs1-SY(1)),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
 
-  // ── 3. Top red band – thin (SY(8)), GCornersTop: corners curve UPWARD
-  //   (outward / away from the LCD) → nubs point toward the black label strip.
+  // ── 3. Top red band – very thin (SY(4) ≈ 5px), GCornersAll: full pill
+  //   shape so both top and bottom edges are rounded into a smooth arc.
   {
-    int top_band_h = y_lcd - y_rs1;  // ≈ SY(8)
-    int srad = top_band_h / 2;
+    int top_band_h = y_lcd - y_rs1;  // ≈ SY(4)
+    int srad = top_band_h / 2;       // half-height → perfect pill end-caps
     graphics_context_set_fill_color(ctx, col_red);
-    graphics_fill_rect(ctx, GRect(0, y_rs1, W, top_band_h), srad, GCornersTop);
+    graphics_fill_rect(ctx, GRect(0, y_rs1, W, top_band_h), srad, GCornersAll);
   }
 
   // ── 5. Outer LCD: col_fg fill + thick col_bg inner fill ──────────────
@@ -389,12 +399,12 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
                      GPoint(comp_x+1,      y_dr+comp_top_h),
                      GPoint(comp_x+comp_w-1, y_dr+comp_top_h));
 
-  // Primary row (top 2/3): DSEG14 digits, right-aligned
+  // Primary row (top 2/3): DSEG14_COMP digits fill the box, right-aligned
   if (cgm_slot) {
-    // CGM: 4-digit value + graphic trend arrow at far right
-    int arw_w = SX(14);
+    // CGM: 4-digit value right-aligned + graphic trend arrow at far right
+    int arw_w = SX(16);
     int num_w = comp_w - arw_w - SX(2);
-    lcd_text(ctx, "8888", cstr, f_date,
+    lcd_text(ctx, "8888", cstr, f_comp,
              GRect(comp_x+SX(1), y_dr+SY(1), num_w, comp_top_h-SY(2)),
              col_ghost, creal, GTextAlignmentRight);
     draw_trend_arrow(ctx, s_cgm_trend[0],
@@ -402,7 +412,7 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
                      creal);
   } else {
     // All other slots: 5-digit area, right-aligned
-    lcd_text(ctx, "88888", cstr, f_date,
+    lcd_text(ctx, "88888", cstr, f_comp,
              GRect(comp_x+SX(1), y_dr+SY(1), comp_w-SX(2), comp_top_h-SY(2)),
              col_ghost, creal, GTextAlignmentRight);
   }
@@ -574,13 +584,13 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     draw_arrow(ctx, GPoint(W-SX(4), cgs_cy), tri_s, true, GColorWhite);
   }
 
-  // ── 14. Bottom red band – thin (SY(8)), GCornersBottom: corners curve
-  //   DOWNWARD (outward / away from the LCD) → nubs point toward banner.
+  // ── 14. Bottom red band – very thin (SY(4) ≈ 5px), GCornersAll: same
+  //   pill shape as top band for visual symmetry.
   {
-    int bot_h = y_ban - y_rs2;  // ≈ SY(8)
+    int bot_h = y_ban - y_rs2;  // ≈ SY(4)
     int brad  = bot_h / 2;
     graphics_context_set_fill_color(ctx, col_red);
-    graphics_fill_rect(ctx, GRect(0, y_rs2, W, bot_h), brad, GCornersBottom);
+    graphics_fill_rect(ctx, GRect(0, y_rs2, W, bot_h), brad, GCornersAll);
   }
 
   // ── 15. E-Paper banner ────────────────────────────────────────────────
@@ -708,11 +718,12 @@ static void load_persist(void) {
 static void window_load(Window *w) {
   // Load DSEG14 custom fonts once (never inside draw proc)
 #ifdef PBL_COLOR
-  s_font_d14_24 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG14_24));
+  s_font_d14_date = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG14_DATE));
+  s_font_d14_comp = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG14_COMP));
 #if defined(PBL_PLATFORM_EMERY)
-  s_font_d14_52 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG14_52));
+  s_font_d14_time_lg = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG14_TIME_LG));
 #else
-  s_font_d14_38 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG14_38));
+  s_font_d14_time    = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG14_TIME));
 #endif
 #endif
 
@@ -727,9 +738,10 @@ static void window_unload(Window *w) {
   s_canvas = NULL;
   // Unload custom fonts
 #ifdef PBL_COLOR
-  if (s_font_d14_24) { fonts_unload_custom_font(s_font_d14_24); s_font_d14_24 = NULL; }
-  if (s_font_d14_38) { fonts_unload_custom_font(s_font_d14_38); s_font_d14_38 = NULL; }
-  if (s_font_d14_52) { fonts_unload_custom_font(s_font_d14_52); s_font_d14_52 = NULL; }
+  if (s_font_d14_date)    { fonts_unload_custom_font(s_font_d14_date);    s_font_d14_date    = NULL; }
+  if (s_font_d14_comp)    { fonts_unload_custom_font(s_font_d14_comp);    s_font_d14_comp    = NULL; }
+  if (s_font_d14_time)    { fonts_unload_custom_font(s_font_d14_time);    s_font_d14_time    = NULL; }
+  if (s_font_d14_time_lg) { fonts_unload_custom_font(s_font_d14_time_lg); s_font_d14_time_lg = NULL; }
 #endif
 }
 

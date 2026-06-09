@@ -25,24 +25,31 @@
       "media": [
         {
           "type": "font",
-          "name": "FONT_DSEG14_24",
+          "name": "FONT_DSEG14_DATE",
           "file": "fonts/DSEG14Classic-Bold.ttf",
           "characterRegex": "[0-9:. -]",
-          "size": 24
+          "size": 32
         },
         {
           "type": "font",
-          "name": "FONT_DSEG14_38",
-          "file": "fonts/DSEG14Classic-Bold.ttf",
-          "characterRegex": "[0-9:. -]",
-          "size": 38
-        },
-        {
-          "type": "font",
-          "name": "FONT_DSEG14_52",
+          "name": "FONT_DSEG14_COMP",
           "file": "fonts/DSEG14Classic-Bold.ttf",
           "characterRegex": "[0-9:. -]",
           "size": 52
+        },
+        {
+          "type": "font",
+          "name": "FONT_DSEG14_TIME",
+          "file": "fonts/DSEG14Classic-Bold.ttf",
+          "characterRegex": "[0-9:. -]",
+          "size": 56
+        },
+        {
+          "type": "font",
+          "name": "FONT_DSEG14_TIME_LG",
+          "file": "fonts/DSEG14Classic-Bold.ttf",
+          "characterRegex": "[0-9:. -]",
+          "size": 80
         }
       ]
     },
