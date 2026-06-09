@@ -2,7 +2,9 @@
   "name": "casiocgm",
   "author": "simon",
   "version": "1.0.0",
-  "keywords": ["pebble-app"],
+  "keywords": [
+    "pebble-app"
+  ],
   "private": true,
   "dependencies": {},
   "pebble": {
@@ -20,36 +22,40 @@
     "watchapp": {
       "watchface": true
     },
-    "capabilities": ["health", "configurable"],
+    "capabilities": [
+      "health",
+      "configurable"
+    ],
     "resources": {
       "media": [
         {
           "type": "font",
-          "name": "FONT_DSEG14_DATE",
+          "name": "FONT_DSEG_DATE30",
           "file": "fonts/DSEG14Classic-Bold.ttf",
           "characterRegex": "[0-9:. -]",
-          "size": 32
+          "size": 30
         },
         {
           "type": "font",
-          "name": "FONT_DSEG14_COMP",
+          "name": "FONT_DSEG_COMP30",
+          "file": "fonts/DSEG14Classic-Bold.ttf",
+          "characterRegex": "[0-9:. -]",
+          "size": 30
+        },
+        {
+          "type": "font",
+          "name": "FONT_DSEG_TIME52",
           "file": "fonts/DSEG14Classic-Bold.ttf",
           "characterRegex": "[0-9:. -]",
           "size": 52
         },
         {
           "type": "font",
-          "name": "FONT_DSEG14_TIME",
+          "name": "FONT_DSEG_TIME_LG69",
           "file": "fonts/DSEG14Classic-Bold.ttf",
           "characterRegex": "[0-9:. -]",
-          "size": 56
-        },
-        {
-          "type": "font",
-          "name": "FONT_DSEG14_TIME_LG",
-          "file": "fonts/DSEG14Classic-Bold.ttf",
-          "characterRegex": "[0-9:. -]",
-          "size": 80
+          "size": 69,
+          "targetPlatforms": ["emery"]
         }
       ]
     },
