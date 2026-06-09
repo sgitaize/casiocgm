@@ -30,32 +30,10 @@
       "media": [
         {
           "type": "font",
-          "name": "FONT_DSEG_DATE30",
-          "file": "fonts/DSEG14Classic-Bold.ttf",
-          "characterRegex": "[0-9:. -]",
-          "size": 30
-        },
-        {
-          "type": "font",
-          "name": "FONT_DSEG_COMP30",
-          "file": "fonts/DSEG14Classic-Bold.ttf",
-          "characterRegex": "[0-9:. -]",
-          "size": 30
-        },
-        {
-          "type": "font",
           "name": "FONT_DSEG_TIME52",
           "file": "fonts/DSEG14Classic-Bold.ttf",
           "characterRegex": "[0-9:. -]",
           "size": 52
-        },
-        {
-          "type": "font",
-          "name": "FONT_DSEG_TIME_LG69",
-          "file": "fonts/DSEG14Classic-Bold.ttf",
-          "characterRegex": "[0-9:. -]",
-          "size": 69,
-          "targetPlatforms": ["emery"]
         }
       ]
     },

@@ -79,10 +79,7 @@ static int  s_batt_pct        = 100;
 
 // ── Custom fonts (color platforms; loaded in window_load) ─────────────────
 #ifdef PBL_COLOR
-static GFont s_font_d14_date    = NULL;  // DSEG 30 px : date display
-static GFont s_font_d14_comp    = NULL;  // DSEG 30 px : comp box primary row
-static GFont s_font_d14_time    = NULL;  // DSEG 52 px : time on non-emery color
-static GFont s_font_d14_time_lg = NULL;  // DSEG 69 px : time on emery
+static GFont s_font_d14_time = NULL;  // DSEG 52 px : time (all color platforms)
 #endif
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -260,21 +257,18 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   GFont f_tiny = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
   GFont f_sm   = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD); (void)f_sm;
 #if defined(PBL_PLATFORM_EMERY)
-  GFont f_dseg_lg = s_font_d14_time_lg ? s_font_d14_time_lg
+  // 52 px DSEG14 for time; LECO_20 for date (fits 73 px slot); LECO_26 for comp
+  GFont f_dseg_lg = s_font_d14_time ? s_font_d14_time
                   : fonts_get_system_font(FONT_KEY_LECO_60_BOLD_NUMBERS_AM_PM);
   GFont f_dseg_sm = NULL; (void)f_dseg_sm;
-  GFont f_date    = s_font_d14_date ? s_font_d14_date
-                  : fonts_get_system_font(FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM);
-  GFont f_comp    = s_font_d14_comp ? s_font_d14_comp
-                  : fonts_get_system_font(FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM);
+  GFont f_date    = fonts_get_system_font(FONT_KEY_LECO_20_BOLD_NUMBERS);
+  GFont f_comp    = fonts_get_system_font(FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM);
 #elif defined(PBL_COLOR)
   GFont f_dseg_lg = s_font_d14_time ? s_font_d14_time
                   : fonts_get_system_font(FONT_KEY_LECO_38_BOLD_NUMBERS);
   GFont f_dseg_sm = fonts_get_system_font(FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM);
-  GFont f_date    = s_font_d14_date ? s_font_d14_date
-                  : fonts_get_system_font(FONT_KEY_LECO_20_BOLD_NUMBERS);
-  GFont f_comp    = s_font_d14_comp ? s_font_d14_comp
-                  : fonts_get_system_font(FONT_KEY_LECO_20_BOLD_NUMBERS);
+  GFont f_date    = fonts_get_system_font(FONT_KEY_LECO_20_BOLD_NUMBERS);
+  GFont f_comp    = fonts_get_system_font(FONT_KEY_LECO_20_BOLD_NUMBERS);
 #else
   GFont f_dseg_lg = fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
   GFont f_dseg_sm = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
@@ -389,7 +383,9 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   bool cgm_valid = cgm_slot && cgm_fresh;
   GColor creal   = cgm_valid ? col_cgm : col_fg;
 
-  // Comp box – no border, digits fill the full dr_h, right-aligned
+  // Comp box – single border rect; digits fill dr_h, right-aligned
+  graphics_context_set_stroke_color(ctx, col_fg);
+  graphics_draw_rect(ctx, GRect(comp_x, y_dr, comp_w, dr_h));
   if (cgm_slot) {
     // CGM: 4-digit value + trend arrow only when live data present
     int arw_w = SX(16);
@@ -421,9 +417,9 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
 
 #if defined(PBL_PLATFORM_EMERY)
   {
-    int full_tw = x_r - x_l - SX(1);
+    // 52 px DSEG14: "HH:MM" advance ≈ 178 px ≤ 183 px available → fits with room to spare
     lcd_text(ctx, "88:88", time_str, f_dseg_lg,
-             GRect(x_l, y_time, full_tw, time_h),
+             GRect(ix + SX(1), y_time, iw - SX(2), time_h),
              col_ghost, col_fg, GTextAlignmentLeft);
   }
 #else
@@ -692,15 +688,9 @@ static void load_persist(void) {
 
 // ── Window ────────────────────────────────────────────────────────────────
 static void window_load(Window *w) {
-  // Load DSEG14 custom fonts once (never inside draw proc)
+  // Load DSEG14 time font once (never inside draw proc); date+comp use LECO system fonts
 #ifdef PBL_COLOR
-  s_font_d14_date = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG_DATE30));
-  s_font_d14_comp = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG_COMP30));
-#if defined(PBL_PLATFORM_EMERY)
-  s_font_d14_time_lg = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG_TIME_LG69));
-#else
-  s_font_d14_time    = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG_TIME52));
-#endif
+  s_font_d14_time = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG_TIME52));
 #endif
 
   Layer *root = window_get_root_layer(w);
@@ -714,10 +704,7 @@ static void window_unload(Window *w) {
   s_canvas = NULL;
   // Unload custom fonts
 #ifdef PBL_COLOR
-  if (s_font_d14_date)    { fonts_unload_custom_font(s_font_d14_date);    s_font_d14_date    = NULL; }
-  if (s_font_d14_comp)    { fonts_unload_custom_font(s_font_d14_comp);    s_font_d14_comp    = NULL; }
-  if (s_font_d14_time)    { fonts_unload_custom_font(s_font_d14_time);    s_font_d14_time    = NULL; }
-  if (s_font_d14_time_lg) { fonts_unload_custom_font(s_font_d14_time_lg); s_font_d14_time_lg = NULL; }
+  if (s_font_d14_time) { fonts_unload_custom_font(s_font_d14_time); s_font_d14_time = NULL; }
 #endif
 }
 
