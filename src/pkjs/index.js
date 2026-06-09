@@ -23,17 +23,18 @@ var K = {
   WEATHER_TEMP:    56, WEATHER_ICON:   57, BATT_PCT:        58
 };
 
-// ── Trend direction → UTF-8 arrow ─────────────────────────────────────────
+// ── Trend direction → single ASCII char (drawn graphically in C) ──────────
+// U=strong up, u=up, r=rising(45°), -=flat, f=falling(45°), d=down, D=strong down
 function trendArrow(direction) {
   var map = {
-    'DoubleUp':        '⇑',
-    'SingleUp':        '↑',
-    'FortyFiveUp':     '↗',
-    'Flat':            '→',
-    'FortyFiveDown':   '↘',
-    'SingleDown':      '↓',
-    'DoubleDown':      '⇓',
-    'NOT COMPUTABLE':  '?',
+    'DoubleUp':          'U',
+    'SingleUp':          'u',
+    'FortyFiveUp':       'r',
+    'Flat':              '-',
+    'FortyFiveDown':     'f',
+    'SingleDown':        'd',
+    'DoubleDown':        'D',
+    'NOT COMPUTABLE':    '?',
     'RATE OUT OF RANGE': '!'
   };
   return map[direction] || '-';

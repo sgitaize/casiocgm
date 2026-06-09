@@ -22,7 +22,29 @@
     },
     "capabilities": ["health", "configurable"],
     "resources": {
-      "media": []
+      "media": [
+        {
+          "type": "font",
+          "name": "FONT_DSEG14_24",
+          "file": "fonts/DSEG14Classic-Bold.ttf",
+          "characterRegex": "[0-9:. -]",
+          "size": 24
+        },
+        {
+          "type": "font",
+          "name": "FONT_DSEG14_38",
+          "file": "fonts/DSEG14Classic-Bold.ttf",
+          "characterRegex": "[0-9:. -]",
+          "size": 38
+        },
+        {
+          "type": "font",
+          "name": "FONT_DSEG14_52",
+          "file": "fonts/DSEG14Classic-Bold.ttf",
+          "characterRegex": "[0-9:. -]",
+          "size": 52
+        }
+      ]
     },
     "messageKeys": [
       "NS_URL",
