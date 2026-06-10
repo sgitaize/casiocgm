@@ -109,6 +109,24 @@ static void complication_str(int slot, char *buf, size_t len) {
   }
 }
 
+// Secondary-slot string shown while shaking.
+// Slot numbering matches the config-page shake2nd select:
+//   0 = CGM delta, 1 = steps, 2 = HR, 3 = battery %, 4 = weather temp
+//   (5 = "None" – caller keeps primary, this is not invoked for slot 5)
+static void shake_str(char *buf, size_t len) {
+  switch (s_shake_2nd) {
+    case 0:
+      if (s_cgm_delta[0]) snprintf(buf, len, "%s", s_cgm_delta);
+      else                 snprintf(buf, len, "----");
+      break;
+    case 1: snprintf(buf, len, "%d", s_steps); break;
+    case 2: snprintf(buf, len, s_hr > 0 ? "%d" : "----", s_hr); break;
+    case 3: snprintf(buf, len, "%d", s_batt_pct); break;
+    case 4: snprintf(buf, len, "%d", s_weather_temp); break;
+    default: snprintf(buf, len, "-----"); break;
+  }
+}
+
 // Ghost segments behind real value – simulates unlit LCD segments
 static void lcd_text(GContext *ctx, const char *ghost, const char *real,
                      GFont font, GRect r, GColor gc, GColor rc,
@@ -389,12 +407,23 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
            col_ghost, col_fg, GTextAlignmentCenter);
 
   // ── 8. Comp box ───────────────────────────────────────────────────────
-  int cslot = s_shake_active ? s_shake_2nd : s_complication;
+  // shake_2nd uses its own slot numbering (0=CGM delta,3=battery,4=weather)
+  // which differs from complication_str's primary-slot numbering.
+  // shake_2nd=5 means "None" – keep showing the primary slot unchanged.
   char cstr[24];
-  complication_str(cslot, cstr, sizeof(cstr));
-  bool cgm_slot  = (cslot == 0);
-  bool cgm_valid = cgm_slot && cgm_fresh;
-  GColor creal   = cgm_valid ? col_cgm : col_fg;
+  bool cgm_slot, cgm_valid;
+  GColor creal;
+  if (s_shake_active && s_shake_2nd != 5) {
+    shake_str(cstr, sizeof(cstr));
+    cgm_slot  = false;   // shake always renders as plain 5-digit slot
+    cgm_valid = false;
+    creal     = col_fg;
+  } else {
+    complication_str(s_complication, cstr, sizeof(cstr));
+    cgm_slot  = (s_complication == 0);
+    cgm_valid = cgm_slot && cgm_fresh;
+    creal     = cgm_valid ? col_cgm : col_fg;
+  }
 
   graphics_context_set_stroke_color(ctx, col_fg);
   graphics_draw_rect(ctx, GRect(comp_x, y_dr, comp_w, dr_h));
