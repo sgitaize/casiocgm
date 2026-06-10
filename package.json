@@ -13,10 +13,6 @@
     "sdkVersion": "3",
     "enableMultiJS": true,
     "targetPlatforms": [
-      "aplite",
-      "basalt",
-      "chalk",
-      "diorite",
       "emery"
     ],
     "watchapp": {
@@ -34,6 +30,19 @@
           "file": "fonts/DSEG14Classic-Bold.ttf",
           "characterRegex": "[0-9:. -]",
           "size": 52
+        },
+        {
+          "type": "font",
+          "name": "FONT_DSEG_DATE20",
+          "file": "fonts/DSEG14Classic-Bold.ttf",
+          "characterRegex": "[0-9. -]"
+        },
+        {
+          "type": "font",
+          "name": "FONT_DSEG_COMP22",
+          "file": "fonts/DSEG14Classic-Bold.ttf",
+          "characterRegex": "[0-9. -]",
+          "size": 22
         }
       ]
     },
@@ -59,6 +68,8 @@
       "SHAKE_2ND",
       "WDAY_LANG",
       "SHOW_SECONDS",
+      "COLOR_GHOST",
+      "COLOR_LABEL_TOP",
       "CGM_VALUE",
       "CGM_DELTA",
       "CGM_TREND",
