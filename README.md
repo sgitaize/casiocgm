@@ -2,7 +2,7 @@
 
 A Pebble watchface styled after the classic **Casio G-Shock digital watch**, with real-time **Nightscout CGM** blood glucose integration.
 
-![CasioCGM Screenshot](screenshot.png)
+![CasioCGM Screenshot](resources/screenshots/Screenshot.jpeg)
 
 ---
 
@@ -70,39 +70,12 @@ Built exclusively for the **Pebble Time 2** (emery, 200×228 px) — DSEG14 Bold
 
 ---
 
-## Layout (emery / Pebble Time 2)
-
-```
-┌──────────────────────────────────┐  ← black area: QUARTZ (left)  TIME 2 (right)
-◆──────────────────────────────────◆  ← red tapered band
-║  ◄LIGHT      pebble      UP►     ║
-║                           SELECT►║
-◆──────────────────────────────────◆
-┌──────────────────────────────────┐  ← outer LCD frame (thick double border)
-│ ┌────────────────────────────────┤
-│ │  09-06        ┌────────────┐  │  ← date (DSEG14 20px) | comp box (DSEG14 22px)
-│ │               │  126  ↑   │  │
-│ │               └────────────┘  │
-│ │                               │
-│ │       06:52                   │  ← time DSEG14 52px (emery full width)
-│ │                               │
-│ ├───────────────────────────────┤
-│ │  ████░░  S M D M D F [S]    │  ← battery bar + weekday strip (DE)
-│ └────────────────────────────────┘
-│  CGM Active          ↑     DOWN►│  ← CGM status + DOWN button label
-└──────────────────────────────────┘
-◆──────────────────────────────────◆  ← red tapered band
-[ E-PAPER DISPLAY                  ]  ← yellow banner
-```
-
 ---
 
 ## Configuration
 
-Tap the settings gear in the Pebble app, or open directly:  
-**[casiocgm.aize-it.de/config/](http://casiocgm.aize-it.de/config/)**
-
-The config page is available in **English and German** (toggle top-right).
+Tap the settings gear in the Pebble app to open the config page.  
+Available in **English and German** (toggle top-right).
 
 ### Nightscout / CGM
 | Setting | Default | Description |
@@ -161,20 +134,6 @@ Clean build:
 ```bash
 pebble clean && pebble build
 ```
-
----
-
-## Deploy config page
-
-The web config is a single `config/index.html`. Deploy via FTP:
-
-```bash
-cp .ftpconfig.example .ftpconfig
-# Edit .ftpconfig with your FTP credentials
-./deploy_ftp.sh
-```
-
-> `.ftpconfig` is in `.gitignore` — never commit credentials.
 
 ---
 
