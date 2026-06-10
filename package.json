@@ -41,7 +41,7 @@
           "type": "font",
           "name": "FONT_DSEG_COMP22",
           "file": "fonts/DSEG14Classic-Bold.ttf",
-          "characterRegex": "[0-9. -]",
+          "characterRegex": "[0-9. +-]",
           "size": 22
         }
       ]
