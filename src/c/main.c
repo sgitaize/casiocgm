@@ -392,10 +392,19 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   graphics_context_set_stroke_color(ctx, col_fg);
   graphics_draw_round_rect(ctx, GRect(lx, y_lcd, lw, lh), lrad);
 
-  // ── 6. Inner LCD border + separator ──────────────────────────────────
-  graphics_context_set_stroke_color(ctx, col_fg);
-  graphics_draw_round_rect(ctx, GRect(ix, y_in, iw, y_in_end-y_in), irad);
-  graphics_draw_line(ctx, GPoint(ix+1, y_info), GPoint(ix+iw-1, y_info));
+  // ── 6. Double border around white LCD area + separator ───────────────
+  // Two concentric stroked rects, 3 px gap between them (filled col_bg).
+  // Separator kept within the inner border.
+  {
+    int gap = 3;
+    graphics_context_set_stroke_color(ctx, col_fg);
+    graphics_draw_round_rect(ctx, GRect(ix, y_in, iw, y_in_end-y_in), irad);
+    graphics_draw_round_rect(ctx,
+      GRect(ix+gap, y_in+gap, iw-2*gap, (y_in_end-y_in)-2*gap),
+      irad > gap ? irad-gap : 0);
+    graphics_draw_line(ctx,
+      GPoint(ix+gap+1, y_info), GPoint(ix+iw-gap-1, y_info));
+  }
 
   // ── 7. Date ───────────────────────────────────────────────────────────
   time_t now_t = time(NULL);
@@ -428,15 +437,8 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     creal     = cgm_valid ? col_cgm : col_fg;
   }
 
-  // Draw box borders: date area (left) + comp box (right).
-  // Both sit SX(2) inside the inner-LCD border, creating the same double-border
-  // appearance that the inner-LCD stroke + each box rect produce together.
+  // Comp box border
   graphics_context_set_stroke_color(ctx, col_fg);
-  // Date box: from SX(2) inside inner-LCD left border to SX(1) left of comp box
-  int date_bx = x_l - SX(1);
-  int date_bw = comp_x - date_bx - SX(1);
-  graphics_draw_rect(ctx, GRect(date_bx, y_dr, date_bw, dr_h));
-  // Comp box
   graphics_draw_rect(ctx, GRect(comp_x, y_dr, comp_w, dr_h));
 
   if (cgm_slot) {
@@ -517,19 +519,20 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   int wday_x   = mid_x + SX(2);
   int wday_w   = x_r - wday_x;
   int day_step = wday_w / 7;
+  int wday_y = info_top - 2;  // shift weekday letters 2 px upward
   for (int i = 0; i < 7; i++) {
     int dw = SX(10);
     int dx = wday_x + i*day_step + (day_step - dw)/2;
     if (i == today_idx) {
       int r = 2; if (r > info_h/2) r = info_h/2; if (r > dw/2) r = dw/2;
       graphics_context_set_fill_color(ctx, col_fg);
-      graphics_fill_rect(ctx, GRect(dx-1, info_top, dw+2, info_h), r, GCornersAll);
+      graphics_fill_rect(ctx, GRect(dx-1, wday_y, dw+2, info_h), r, GCornersAll);
       graphics_context_set_text_color(ctx, col_bg);
     } else {
       graphics_context_set_text_color(ctx, col_ghost);
     }
     graphics_draw_text(ctx, days_arr[i], f_tiny,
-                       GRect(dx, info_top, dw, info_h),
+                       GRect(dx, wday_y, dw, info_h),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
   }
 
