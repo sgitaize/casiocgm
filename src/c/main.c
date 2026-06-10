@@ -526,7 +526,7 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     if (i == today_idx) {
       int r = 2; if (r > info_h/2) r = info_h/2; if (r > dw/2) r = dw/2;
       graphics_context_set_fill_color(ctx, col_fg);
-      graphics_fill_rect(ctx, GRect(dx-1, wday_y, dw+2, info_h), r, GCornersAll);
+      graphics_fill_rect(ctx, GRect(dx-1, wday_y+2, dw+2, info_h), r, GCornersAll);
       graphics_context_set_text_color(ctx, col_bg);
     } else {
       graphics_context_set_text_color(ctx, col_ghost);
