@@ -18,6 +18,8 @@ var K = {
   SHAKE_2ND:       18,
   WDAY_LANG:       19,
   SHOW_SECONDS:    20,
+  COLOR_GHOST:     21,
+  COLOR_LABEL_TOP: 22,
   CGM_VALUE:       50, CGM_DELTA:      51, CGM_TREND:       52,
   CGM_AGE:         53, STEPS:          54, HR:              55,
   WEATHER_TEMP:    56, WEATHER_ICON:   57, BATT_PCT:        58
@@ -58,7 +60,7 @@ function sendConfig() {
   msg[K.COLOR_BG]        = colorToInt(config.colorBg     || '#FFFFFF');
   msg[K.COLOR_FG]        = colorToInt(config.colorFg     || '#000055');
   msg[K.COLOR_ACCENT]    = colorToInt(config.colorAccent || '#0000FF');
-  msg[K.COLOR_CGM_OK]    = colorToInt(config.colorCgmOk  || '#00AA00');
+  msg[K.COLOR_CGM_OK]    = colorToInt(config.colorCgmOk  || '#38571A');
   msg[K.COLOR_CGM_HIGH]  = colorToInt(config.colorCgmHigh|| '#FFAA00');
   msg[K.COLOR_CGM_LOW]   = colorToInt(config.colorCgmLow || '#FF0000');
   msg[K.COMPLICATION]    = parseInt(config.complication) || 0;
@@ -70,6 +72,8 @@ function sendConfig() {
   msg[K.SHAKE_2ND]       = parseInt(config.shake2nd)     || 0;
   msg[K.WDAY_LANG]       = parseInt(config.wdayLang)     || 0;
   msg[K.SHOW_SECONDS]    = parseInt(config.showSeconds)  || 0;
+  msg[K.COLOR_GHOST]     = colorToInt(config.colorGhost    || '#ADADAD');
+  msg[K.COLOR_LABEL_TOP] = colorToInt(config.colorLabelTop || '#FFFFFF');
 
   Pebble.sendAppMessage(msg, function() {
     console.log('[CasioCGM] Config sent');

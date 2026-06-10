@@ -415,8 +415,8 @@
         <div class="field">
           <label data-en="CGM in range" data-de="CGM im Bereich">CGM OK</label>
           <div class="color-row">
-            <input type="color"  id="colorCgmOkPicker" value="#00AA00" oninput="syncColor('colorCgmOk','colorCgmOkPicker')">
-            <input type="text"   id="colorCgmOk"        value="#00AA00" maxlength="7" oninput="syncColor('colorCgmOkPicker','colorCgmOk',true)">
+            <input type="color"  id="colorCgmOkPicker" value="#38571A" oninput="syncColor('colorCgmOk','colorCgmOkPicker')">
+            <input type="text"   id="colorCgmOk"        value="#38571A" maxlength="7" oninput="syncColor('colorCgmOkPicker','colorCgmOk',true)">
           </div>
         </div>
 
@@ -434,6 +434,24 @@
             <input type="color"  id="colorCgmLowPicker" value="#FF0000" oninput="syncColor('colorCgmLow','colorCgmLowPicker')">
             <input type="text"   id="colorCgmLow"        value="#FF0000" maxlength="7" oninput="syncColor('colorCgmLowPicker','colorCgmLow',true)">
           </div>
+        </div>
+
+        <div class="field">
+          <label data-en="Ghost segments" data-de="Geister-Segmente">Ghost segments</label>
+          <div class="color-row">
+            <input type="color"  id="colorGhostPicker" value="#ADADAD" oninput="syncColor('colorGhost','colorGhostPicker')">
+            <input type="text"   id="colorGhost"        value="#ADADAD" maxlength="7" oninput="syncColor('colorGhostPicker','colorGhost',true)">
+          </div>
+          <p class="hint" data-en="Unlit LCD segment colour. Lighter = more subtle." data-de="Farbe der unbeleuchteten LCD-Segmente. Heller = dezenter.">Unlit LCD segment colour.</p>
+        </div>
+
+        <div class="field">
+          <label data-en="Top banner labels" data-de="Obere Banner-Labels">Top banner labels</label>
+          <div class="color-row">
+            <input type="color"  id="colorLabelTopPicker" value="#FFFFFF" oninput="syncColor('colorLabelTop','colorLabelTopPicker')">
+            <input type="text"   id="colorLabelTop"        value="#FFFFFF" maxlength="7" oninput="syncColor('colorLabelTopPicker','colorLabelTop',true)">
+          </div>
+          <p class="hint" data-en="Colour of QUARTZ / TIME 2 labels in the top strip." data-de="Farbe der QUARTZ / TIME 2 Labels im oberen Streifen.">Colour of top-strip labels (QUARTZ / TIME 2).</p>
         </div>
 
       </div>
@@ -523,7 +541,7 @@ function loadConfig() {
     setVal('showSeconds',   cfg.showSeconds);
 
     // Colors stored as #RRGGBB strings
-    var colorFields = ['colorBg', 'colorFg', 'colorAccent', 'colorCgmOk', 'colorCgmHigh', 'colorCgmLow'];
+    var colorFields = ['colorBg', 'colorFg', 'colorAccent', 'colorCgmOk', 'colorCgmHigh', 'colorCgmLow', 'colorGhost', 'colorLabelTop'];
     colorFields.forEach(function(f) {
       var v = cfg[f];
       if (v === undefined || v === null) return;
@@ -563,12 +581,14 @@ function save() {
     wdayLang:      document.getElementById('wdayLang').value,
     showSeconds:   document.getElementById('showSeconds').value,
     // Colors as hex strings – index.js converts to int for AppMessage
-    colorBg:       document.getElementById('colorBg').value,
-    colorFg:       document.getElementById('colorFg').value,
-    colorAccent:   document.getElementById('colorAccent').value,
-    colorCgmOk:    document.getElementById('colorCgmOk').value,
-    colorCgmHigh:  document.getElementById('colorCgmHigh').value,
-    colorCgmLow:   document.getElementById('colorCgmLow').value
+    colorBg:         document.getElementById('colorBg').value,
+    colorFg:         document.getElementById('colorFg').value,
+    colorAccent:     document.getElementById('colorAccent').value,
+    colorCgmOk:      document.getElementById('colorCgmOk').value,
+    colorCgmHigh:    document.getElementById('colorCgmHigh').value,
+    colorCgmLow:     document.getElementById('colorCgmLow').value,
+    colorGhost:      document.getElementById('colorGhost').value,
+    colorLabelTop:   document.getElementById('colorLabelTop').value
   };
 
   var encoded = encodeURIComponent(JSON.stringify(cfg));
