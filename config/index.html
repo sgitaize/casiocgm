@@ -273,6 +273,26 @@
           <input type="number" id="nsLow" value="70" min="40" max="100">
         </div>
       </div>
+      <div class="field">
+        <label data-en="Sync fetch to CGM timestamp" data-de="Abruf an CGM-Zeitstempel syncen">Sync to CGM timestamp</label>
+        <select id="syncBgWithInterval">
+          <option value="1" data-en="Yes – fetch at last reading + interval + 30 s (recommended)" data-de="Ja – Abruf bei letztem Wert + Intervall + 30 s (empfohlen)">Yes (recommended)</option>
+          <option value="0" data-en="No – fetch every manual interval" data-de="Nein – Abruf alle x Minuten">No (manual interval)</option>
+        </select>
+        <p class="hint" data-en="Synced mode schedules each fetch just after the CGM sensor is expected to report, minimising stale data." data-de="Sync-Modus plant den Abruf kurz nach dem erwarteten CGM-Intervall, um veraltete Daten zu minimieren.">Synced mode fetches right after the next reading is expected.</p>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label data-en="CGM interval (min)" data-de="CGM-Intervall (Min.)">CGM interval (min)</label>
+          <input type="number" id="bgFetchIntervalMin" value="5" min="1" max="20">
+          <p class="hint" data-en="Sensor reporting interval: 5 for Dexcom, 15 for Libre." data-de="Sensor-Intervall: 5 für Dexcom, 15 für Libre.">5 = Dexcom, 15 = Libre</p>
+        </div>
+        <div class="field">
+          <label data-en="Fallback interval (min)" data-de="Ersatz-Intervall (Min.)">Fallback (min)</label>
+          <input type="number" id="bgManualIntervalMin" value="5" min="1" max="60">
+          <p class="hint" data-en="Used when sync is off, or as a maximum timeout." data-de="Genutzt wenn Sync aus ist, oder als maximales Timeout.">Used when sync is off or as max timeout.</p>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -530,6 +550,11 @@ function loadConfig() {
     setVal('nsHigh',        cfg.nsHigh);
     setVal('nsLow',         cfg.nsLow);
     setVal('nsStaleMin',    cfg.nsStaleMin);
+    // CGM sync settings
+    if (cfg.syncBgWithInterval !== undefined)
+      setVal('syncBgWithInterval', cfg.syncBgWithInterval ? '1' : '0');
+    if (cfg.bgFetchIntervalMin)  setVal('bgFetchIntervalMin',  cfg.bgFetchIntervalMin);
+    if (cfg.bgManualIntervalMin) setVal('bgManualIntervalMin', cfg.bgManualIntervalMin);
     setVal('complication',  cfg.complication);
     setVal('labelTopLeft',  cfg.labelTopLeft);
     setVal('labelTopRight', cfg.labelTopRight);
@@ -571,6 +596,9 @@ function save() {
     nsHigh:        document.getElementById('nsHigh').value,
     nsLow:         document.getElementById('nsLow').value,
     nsStaleMin:    document.getElementById('nsStaleMin').value,
+    syncBgWithInterval: document.getElementById('syncBgWithInterval').value !== '0',
+    bgFetchIntervalMin:  parseInt(document.getElementById('bgFetchIntervalMin').value)  || 5,
+    bgManualIntervalMin: parseInt(document.getElementById('bgManualIntervalMin').value) || 5,
     complication:  document.getElementById('complication').value,
     labelTopLeft:  document.getElementById('labelTopLeft').value,
     labelTopRight: document.getElementById('labelTopRight').value,

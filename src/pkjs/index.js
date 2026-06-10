@@ -1,11 +1,26 @@
 /*
  * CasioCGM – Phone-side JS
- * Fetches Nightscout, Weather, sends data + config to watch
+ * Fetches Nightscout, Weather, sends data + config to watch.
+ *
+ * CGM sync strategy (adapted from Nightscout-supercgm):
+ *   When syncBgWithInterval=true: schedule next fetch at
+ *     lastReading.timestamp + bgFetchIntervalMin + 30 s
+ *   This keeps the fetch closely aligned with when Nightscout actually
+ *   receives a new reading, rather than drifting on a fixed interval.
+ *   On failure or when sync is off: fall back to bgManualIntervalMin.
  */
 
 var config = {};
-var fetchTimer = null;
-var FETCH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+var fetchTimer   = null;  // CGM fetch timer (setTimeout)
+var weatherTimer = null;  // Weather refresh timer (setInterval)
+var FETCH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes (legacy fallback)
+
+// ── Config defaults ───────────────────────────────────────────────────────
+var configDefaults = {
+  syncBgWithInterval: true,  // sync fetch to CGM timestamp
+  bgFetchIntervalMin: 5,     // expected CGM sensor interval (min)
+  bgManualIntervalMin: 5     // fallback / max fetch interval (min)
+};
 
 // ── Key constants (must match main.c) ────────────────────────────────────
 var K = {
@@ -26,7 +41,6 @@ var K = {
 };
 
 // ── Trend direction → single ASCII char (drawn graphically in C) ──────────
-// U=strong up, u=up, r=rising(45°), -=flat, f=falling(45°), d=down, D=strong down
 function trendArrow(direction) {
   var map = {
     'DoubleUp':          'U',
@@ -82,6 +96,44 @@ function sendConfig() {
   });
 }
 
+// ── Smart CGM scheduling ──────────────────────────────────────────────────
+// Schedule the next fetchNightscout() call.
+// lastBgTsSec: Unix timestamp (seconds) of the last CGM reading, or 0/null.
+//
+// When syncBgWithInterval=true (default):
+//   next fetch = lastReading + bgFetchIntervalMin*60 + 30 s
+//   The +30 s buffer ensures Nightscout has received and stored the reading.
+//   Clamped to [15 s, 3× manual interval] to handle bad timestamps.
+// When syncBgWithInterval=false:
+//   next fetch = now + bgManualIntervalMin
+function planNextBGFetch(lastBgTsSec) {
+  if (fetchTimer) { clearTimeout(fetchTimer); fetchTimer = null; }
+
+  var manualMin = Math.max(1, parseInt(config.bgManualIntervalMin || configDefaults.bgManualIntervalMin, 10));
+  var manualMs  = manualMin * 60 * 1000;
+  var useSync   = config.syncBgWithInterval !== false &&
+                  config.syncBgWithInterval !== '0'  &&
+                  config.syncBgWithInterval !== 0;
+
+  if (!useSync || !lastBgTsSec || lastBgTsSec <= 0) {
+    console.log('[CasioCGM] planNextBGFetch: manual interval ' + manualMin + ' min');
+    fetchTimer = setTimeout(fetchNightscout, manualMs);
+    return;
+  }
+
+  var sensorMin = Math.max(1, parseInt(config.bgFetchIntervalMin || configDefaults.bgFetchIntervalMin, 10));
+  var sensorMs  = sensorMin * 60 * 1000;
+  // Target: lastReading + sensor interval + 30 s overhead
+  var targetMs  = lastBgTsSec * 1000 + sensorMs + 30000;
+  var delay     = targetMs - Date.now();
+
+  if (delay < 15000)        delay = 15000;     // minimum 15 s
+  if (delay > manualMs * 3) delay = manualMs;  // clamp to manual interval if ts looks wrong
+
+  console.log('[CasioCGM] planNextBGFetch: synced, next in ' + Math.round(delay / 1000) + ' s');
+  fetchTimer = setTimeout(fetchNightscout, delay);
+}
+
 // ── Fetch Nightscout ──────────────────────────────────────────────────────
 // Uses the /pebble endpoint:
 //   GET <nsUrl>/pebble
@@ -89,7 +141,10 @@ function sendConfig() {
 //               "datetime":1780980660000,"bgdelta":18,...}],...}
 function fetchNightscout() {
   var url = config.nsUrl;
-  if (!url || url.length < 4) return;
+  if (!url || url.length < 4) {
+    planNextBGFetch(null);
+    return;
+  }
 
   // Remove trailing slash, then append /pebble
   url = url.replace(/\/$/, '');
@@ -105,12 +160,17 @@ function fetchNightscout() {
     if (req.status === 200) {
       try {
         var data = JSON.parse(req.responseText);
-        if (!data || !data.bgs || data.bgs.length === 0) return;
+        if (!data || !data.bgs || data.bgs.length === 0) {
+          planNextBGFetch(null);
+          return;
+        }
 
         var bg     = data.bgs[0];
         var sgv    = parseInt(bg.sgv)      || 0;
         var delta  = parseInt(bg.bgdelta)  || 0;
         var trend  = trendArrow(bg.direction || '');
+        // datetime is milliseconds; convert to seconds for scheduling
+        var bgTs   = bg.datetime ? Math.floor(bg.datetime / 1000) : 0;
         var ageMs  = Date.now() - (bg.datetime || 0);
         var ageMin = Math.round(ageMs / 60000);
 
@@ -131,17 +191,30 @@ function fetchNightscout() {
         msg[K.CGM_AGE]   = ageMin;
 
         Pebble.sendAppMessage(msg, function() {
-          console.log('[CasioCGM] CGM sent: ' + valStr + ' ' + trend + ' age=' + ageMin + 'min');
+          console.log('[CasioCGM] CGM sent: ' + valStr + ' ' + trend +
+                      ' age=' + ageMin + 'min ts=' + bgTs);
         }, function(e) {
           console.log('[CasioCGM] CGM send failed');
         });
+
+        // Schedule next fetch aligned to this reading's timestamp
+        planNextBGFetch(bgTs);
       } catch (ex) {
         console.log('[CasioCGM] Parse error: ' + ex);
+        planNextBGFetch(null);
       }
+    } else {
+      console.log('[CasioCGM] HTTP error: ' + req.status);
+      planNextBGFetch(null);
     }
   };
   req.onerror = function() {
     console.log('[CasioCGM] Fetch error');
+    planNextBGFetch(null);
+  };
+  req.ontimeout = function() {
+    console.log('[CasioCGM] Fetch timeout');
+    planNextBGFetch(null);
   };
   req.send();
 }
@@ -188,13 +261,22 @@ function fetchWeather() {
 
 // ── Scheduled fetch ──────────────────────────────────────────────────────
 function scheduleFetch() {
+  // CGM: kick off immediately; planNextBGFetch handles subsequent timing
+  if (fetchTimer) { clearTimeout(fetchTimer); fetchTimer = null; }
   fetchNightscout();
+
+  // Weather: refresh every 30 min (independent of CGM sync)
   fetchWeather();
-  if (fetchTimer) clearInterval(fetchTimer);
-  fetchTimer = setInterval(function() {
-    fetchNightscout();
-    fetchWeather();
-  }, FETCH_INTERVAL_MS);
+  if (weatherTimer) clearInterval(weatherTimer);
+  weatherTimer = setInterval(fetchWeather, 30 * 60 * 1000);
+}
+
+// ── Apply config defaults for missing keys ────────────────────────────────
+function applyDefaults(cfg) {
+  if (cfg.syncBgWithInterval === undefined) cfg.syncBgWithInterval = configDefaults.syncBgWithInterval;
+  if (!cfg.bgFetchIntervalMin)              cfg.bgFetchIntervalMin  = configDefaults.bgFetchIntervalMin;
+  if (!cfg.bgManualIntervalMin)             cfg.bgManualIntervalMin = configDefaults.bgManualIntervalMin;
+  return cfg;
 }
 
 // ── Pebble events ────────────────────────────────────────────────────────
@@ -203,7 +285,9 @@ Pebble.addEventListener('ready', function() {
   // Load stored config
   var stored = localStorage.getItem('casiocgm_config');
   if (stored) {
-    try { config = JSON.parse(stored); } catch(e) {}
+    try { config = applyDefaults(JSON.parse(stored)); } catch(e) {}
+  } else {
+    config = applyDefaults({});
   }
   sendConfig();
   scheduleFetch();
@@ -212,7 +296,7 @@ Pebble.addEventListener('ready', function() {
 Pebble.addEventListener('webviewclosed', function(e) {
   if (!e.response || e.response === 'CANCELLED') return;
   try {
-    config = JSON.parse(decodeURIComponent(e.response));
+    config = applyDefaults(JSON.parse(decodeURIComponent(e.response)));
     localStorage.setItem('casiocgm_config', JSON.stringify(config));
     sendConfig();
     scheduleFetch();
