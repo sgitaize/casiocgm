@@ -519,7 +519,7 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   int wday_x   = mid_x + SX(2);
   int wday_w   = x_r - wday_x;
   int day_step = wday_w / 7;
-  int wday_y = info_top - 2;  // shift weekday letters 2 px upward
+  int wday_y = info_top - 3;  // shift weekday letters 3 px upward
   for (int i = 0; i < 7; i++) {
     int dw = SX(10);
     int dx = wday_x + i*day_step + (day_step - dw)/2;
