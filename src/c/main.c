@@ -320,7 +320,10 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   int render_h      = 20;
   int render_h_comp = 22;
   int glyph_h       = 15;
-  int row_ty = y_dr + (dr_h - glyph_h) / 2;
+  // Center glyphs vertically in the date/comp row, then shift up 3 px so the
+  // visual ink sits between the inner-LCD border (y_in) and the row top (y_dr).
+  // The rect borders (date box, comp box) remain anchored at y_dr / dr_h.
+  int row_ty = y_dr + (dr_h - glyph_h) / 2 - 3;
   if (row_ty < y_dr) row_ty = y_dr;
   if (row_ty + render_h > y_dr + dr_h) row_ty = y_dr + dr_h - render_h;
 
@@ -425,7 +428,15 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     creal     = cgm_valid ? col_cgm : col_fg;
   }
 
+  // Draw box borders: date area (left) + comp box (right).
+  // Both sit SX(2) inside the inner-LCD border, creating the same double-border
+  // appearance that the inner-LCD stroke + each box rect produce together.
   graphics_context_set_stroke_color(ctx, col_fg);
+  // Date box: from SX(2) inside inner-LCD left border to SX(1) left of comp box
+  int date_bx = x_l - SX(1);
+  int date_bw = comp_x - date_bx - SX(1);
+  graphics_draw_rect(ctx, GRect(date_bx, y_dr, date_bw, dr_h));
+  // Comp box
   graphics_draw_rect(ctx, GRect(comp_x, y_dr, comp_w, dr_h));
 
   if (cgm_slot) {
