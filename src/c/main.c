@@ -24,7 +24,12 @@
 #define KEY_SHOW_SECONDS    20   // reserved (not used on emery)
 #define KEY_COLOR_GHOST     21   // ghost segment color
 #define KEY_COLOR_LABEL_TOP 22   // top banner label color
-#define KEY_CGM_VALUE       50
+#define KEY_GHOST_ENABLED      23   // 1=show ghost segments (default), 0=hide
+#define KEY_COLOR_CGM_BANNER   24   // color for CGM Active/Offline status text
+#define KEY_COLOR_TIME2_BG     25   // background tint for date+comp row (0=same as LCD bg)
+#define KEY_CGM_BOX_ENABLED    35   // 1=show border box around CGM status (default), 0=hide
+#define KEY_COLOR_CGM_BOX_BG   36   // fill color for CGM status box
+#define KEY_CGM_VALUE          50
 #define KEY_CGM_DELTA       51
 #define KEY_CGM_TREND       52
 #define KEY_CGM_AGE         53
@@ -62,8 +67,13 @@ static int  s_first_weekday   = 0;
 static int  s_date_format     = 0;
 static int  s_shake_2nd       = 0;  // secondary slot shown on shake
 static int  s_wday_lang       = 0;  // 0=EN, 1=DE
-static int  s_color_ghost     = 0xADADAD;  // ghost segment color
-static int  s_color_label_top = 0xFFFFFF;  // top banner label color
+static int  s_color_ghost      = 0xADADAD;  // ghost segment color
+static int  s_color_label_top  = 0xFFFFFF;  // top banner label color
+static int  s_ghost_enabled    = 1;         // 1=show ghost segments, 0=hide
+static int  s_color_cgm_banner = 0x38571A;  // CGM Active/Offline status text color
+static int  s_color_time2_bg   = 0xEEEEEE; // date+comp row background tint (matches LCD bg default)
+static int  s_cgm_box_enabled  = 1;         // 1=show border box around CGM status, 0=hide
+static int  s_color_cgm_box_bg = 0xEEEEEE; // CGM status box fill color (default = LCD bg)
 
 static char s_cgm_value[16]   = "---";
 static char s_cgm_delta[16]   = "";
@@ -79,7 +89,8 @@ static int  s_batt_pct        = 100;
 // ── Custom fonts (loaded in window_load) ──────────────────────────────────
 static GFont s_font_d14_time = NULL;  // DSEG14 52px : time
 static GFont s_font_d7_date  = NULL;  // DSEG14 20px : date
-static GFont s_font_d7_comp  = NULL;  // DSEG14 22px : comp box
+static GFont s_font_d7_comp  = NULL;  // DSEG14 Bold 22px : comp box real digits
+static GFont s_font_comp_reg = NULL;  // DSEG14 Regular 22px : comp box ghost digits
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 static GColor color_from_int(int v) {
@@ -186,16 +197,16 @@ static void draw_trend_arrow(GContext *ctx, char t, GRect r, GColor col) {
   if (ah > 7) ah = 7;
   graphics_context_set_stroke_color(ctx, col);
   switch (t) {
-    case 'U':
-      graphics_draw_line(ctx, GPoint(cx,    cy-1),      GPoint(cx-ah, cy+ah-1));
-      graphics_draw_line(ctx, GPoint(cx,    cy-1),      GPoint(cx+ah, cy+ah-1));
-      graphics_draw_line(ctx, GPoint(cx,    cy-ah-2),   GPoint(cx-ah, cy-2));
-      graphics_draw_line(ctx, GPoint(cx,    cy-ah-2),   GPoint(cx+ah, cy-2));
+    case 'U':  // DoubleUp — two upward chevrons ↑↑
+      graphics_draw_line(ctx, GPoint(cx, cy-ah-1), GPoint(cx-ah, cy-1));
+      graphics_draw_line(ctx, GPoint(cx, cy-ah-1), GPoint(cx+ah, cy-1));
+      graphics_draw_line(ctx, GPoint(cx, cy+1),    GPoint(cx-ah, cy+ah+1));
+      graphics_draw_line(ctx, GPoint(cx, cy+1),    GPoint(cx+ah, cy+ah+1));
       break;
-    case 'u':
-      graphics_draw_line(ctx, GPoint(cx,    cy-ah),     GPoint(cx-ah, cy+ah));
-      graphics_draw_line(ctx, GPoint(cx,    cy-ah),     GPoint(cx+ah, cy+ah));
-      graphics_draw_line(ctx, GPoint(cx-ah, cy+ah),     GPoint(cx+ah, cy+ah));
+    case 'u':  // SingleUp — arrow with stem ↑
+      graphics_draw_line(ctx, GPoint(cx, cy+ah),   GPoint(cx,    cy-ah+1));
+      graphics_draw_line(ctx, GPoint(cx, cy-ah),   GPoint(cx-ah, cy));
+      graphics_draw_line(ctx, GPoint(cx, cy-ah),   GPoint(cx+ah, cy));
       break;
     case 'r':
       graphics_draw_line(ctx, GPoint(cx-ah, cy+ah),     GPoint(cx+ah, cy-ah));
@@ -207,16 +218,16 @@ static void draw_trend_arrow(GContext *ctx, char t, GRect r, GColor col) {
       graphics_draw_line(ctx, GPoint(cx+ah, cy+ah),     GPoint(cx,    cy+ah));
       graphics_draw_line(ctx, GPoint(cx+ah, cy+ah),     GPoint(cx+ah, cy));
       break;
-    case 'd':
-      graphics_draw_line(ctx, GPoint(cx,    cy+ah),     GPoint(cx-ah, cy-ah));
-      graphics_draw_line(ctx, GPoint(cx,    cy+ah),     GPoint(cx+ah, cy-ah));
-      graphics_draw_line(ctx, GPoint(cx-ah, cy-ah),     GPoint(cx+ah, cy-ah));
+    case 'd':  // SingleDown — arrow with stem ↓
+      graphics_draw_line(ctx, GPoint(cx, cy-ah),   GPoint(cx,    cy+ah-1));
+      graphics_draw_line(ctx, GPoint(cx, cy+ah),   GPoint(cx-ah, cy));
+      graphics_draw_line(ctx, GPoint(cx, cy+ah),   GPoint(cx+ah, cy));
       break;
-    case 'D':
-      graphics_draw_line(ctx, GPoint(cx,    cy+1),      GPoint(cx-ah, cy-ah+1));
-      graphics_draw_line(ctx, GPoint(cx,    cy+1),      GPoint(cx+ah, cy-ah+1));
-      graphics_draw_line(ctx, GPoint(cx,    cy+ah+2),   GPoint(cx-ah, cy+2));
-      graphics_draw_line(ctx, GPoint(cx,    cy+ah+2),   GPoint(cx+ah, cy+2));
+    case 'D':  // DoubleDown — two downward chevrons ↓↓
+      graphics_draw_line(ctx, GPoint(cx, cy-1),    GPoint(cx-ah, cy-ah-1));
+      graphics_draw_line(ctx, GPoint(cx, cy-1),    GPoint(cx+ah, cy-ah-1));
+      graphics_draw_line(ctx, GPoint(cx, cy+ah+1), GPoint(cx-ah, cy+1));
+      graphics_draw_line(ctx, GPoint(cx, cy+ah+1), GPoint(cx+ah, cy+1));
       break;
     default:  // Flat
       graphics_draw_line(ctx, GPoint(cx-ah,    cy),       GPoint(cx+ah,    cy));
@@ -281,6 +292,7 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   GFont f_comp    = s_font_d7_comp ? s_font_d7_comp
                   : s_font_d7_date ? s_font_d7_date
                   : fonts_get_system_font(FONT_KEY_LECO_20_BOLD_NUMBERS);
+  GFont f_comp_g  = s_font_comp_reg ? s_font_comp_reg : f_comp;
 
   // ── Y anchors (ref H=168) ─────────────────────────────────────────────
   int y_rs1     = SY(13);
@@ -307,9 +319,9 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   int x_l = ix + SX(3);
   int x_r = ix + iw - SX(2);
 
-  // Comp box width; date_w fills the remainder
+  // Comp box width; 4 px right-margin keeps box clear of the double border
   int comp_w = SX(68);
-  int comp_x = x_r - comp_w;
+  int comp_x = x_r - comp_w - SX(4);
   int date_w = comp_x - x_l - SX(2);
 
   // Date+comp centering:
@@ -359,7 +371,7 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     draw_arrow(ctx, GPoint(SX(4) + tri_b, bl_cy), tri_b, false, GColorWhite);
     graphics_context_set_text_color(ctx, GColorWhite);
     graphics_draw_text(ctx, "LIGHT", f_lbl,
-                       GRect(SX(4)+tri_b*2+SX(1), bl_y+(bl_h-9)/2, SX(32), 9),
+                       GRect(SX(4)+tri_b*2+SX(3), bl_y+(bl_h-9)/2, SX(30), 9),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
 
     graphics_context_set_text_color(ctx, GColorYellow);
@@ -392,6 +404,16 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   graphics_context_set_stroke_color(ctx, col_fg);
   graphics_draw_round_rect(ctx, GRect(lx, y_lcd, lw, lh), lrad);
 
+  // ── 5b. Time 2 row tinted background ─────────────────────────────────
+  // Fills the date+comp row with a separate color (default matches LCD bg).
+  // Drawn before the double border so border strokes appear on top.
+  {
+    int t2_gap = 4;  // stay inside the double-border stroke (gap=3 + 1px)
+    graphics_context_set_fill_color(ctx, color_from_int(s_color_time2_bg));
+    graphics_fill_rect(ctx, GRect(ix+t2_gap, y_dr, iw-2*t2_gap, y_time-y_dr),
+                       0, GCornerNone);
+  }
+
   // ── 6. Double border around white LCD area + separator ───────────────
   // Two concentric stroked rects, 3 px gap between them (filled col_bg).
   // Separator kept within the inner border.
@@ -415,7 +437,7 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   else                    snprintf(date_str, sizeof(date_str), "%02u-%02u", dm, dd);
 
   lcd_text(ctx, "88-88", date_str, f_date,
-           GRect(x_l + SX(3), row_ty, date_w - SX(3), render_h),
+           GRect(x_l, row_ty, date_w, render_h),
            col_ghost, col_fg, GTextAlignmentCenter);
 
   // ── 8. Comp box ───────────────────────────────────────────────────────
@@ -445,18 +467,30 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     // CGM: 4-digit value + trend arrow; narrower arrow to fit 22px font
     int arw_w = SX(12);
     int num_w = comp_w - arw_w - SX(2);
-    lcd_text(ctx, "8888", cstr, f_comp,
-             GRect(comp_x+SX(1), row_ty, num_w, render_h_comp),
-             col_ghost, creal, GTextAlignmentRight);
+    GRect num_r = GRect(comp_x+SX(1), row_ty, num_w, render_h_comp);
+    if (s_ghost_enabled) {
+      graphics_context_set_text_color(ctx, col_ghost);
+      graphics_draw_text(ctx, "8888", f_comp_g, num_r,
+                         GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
+    }
+    graphics_context_set_text_color(ctx, creal);
+    graphics_draw_text(ctx, cstr, f_comp, num_r,
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
     if (cgm_valid) {
       draw_trend_arrow(ctx, s_cgm_trend[0],
                        GRect(comp_x+SX(1)+num_w, row_ty, arw_w, render_h_comp),
                        creal);
     }
   } else {
-    lcd_text(ctx, "88888", cstr, f_comp,
-             GRect(comp_x+SX(1), row_ty, comp_w-SX(2), render_h_comp),
-             col_ghost, creal, GTextAlignmentRight);
+    GRect all_r = GRect(comp_x+SX(1), row_ty, comp_w-SX(2), render_h_comp);
+    if (s_ghost_enabled) {
+      graphics_context_set_text_color(ctx, col_ghost);
+      graphics_draw_text(ctx, "88888", f_comp_g, all_r,
+                         GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
+    }
+    graphics_context_set_text_color(ctx, creal);
+    graphics_draw_text(ctx, cstr, f_comp, all_r,
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
   }
 
   // ── 9. Time HH:MM (DSEG14 52px, full LCD width) ───────────────────────
@@ -551,16 +585,44 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
       cgs_col = color_from_int(s_color_cgm_low);
     } else {
       snprintf(cgs_txt, sizeof(cgs_txt), "CGM Active");
-      cgs_col = color_from_int(s_color_cgm_ok);
+      cgs_col = color_from_int(s_color_cgm_banner);
     }
+    // Measure text to dynamically size the box
+    int box_pad = SX(5);
+    GSize txt_sz = graphics_text_layout_get_content_size(
+        cgs_txt, f_tiny, GRect(0, 0, W / 2, cgs_h),
+        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft);
+    int box_w = txt_sz.w + 2 * box_pad;
+    GRect box_r = GRect(SX(2), y_cgs+1, box_w, cgs_h-2);
+
+    // #7: optional border box — same corner radius as inner LCD frame
+    if (s_cgm_box_enabled) {
+      graphics_context_set_fill_color(ctx, color_from_int(s_color_cgm_box_bg));
+      graphics_fill_rect(ctx, box_r, irad, GCornersAll);
+      graphics_context_set_stroke_color(ctx, cgs_col);
+      graphics_draw_round_rect(ctx, box_r, irad);
+    }
+    // Text centered inside box
     graphics_context_set_text_color(ctx, cgs_col);
     graphics_draw_text(ctx, cgs_txt, f_tiny,
-                       GRect(SX(4), y_cgs, SX(68), cgs_h),
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+                       GRect(SX(2)+box_pad, y_cgs+1, box_w-2*box_pad, cgs_h-2),
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 
     if (cgm_fresh) {
+      // Trend arrow directly after the box
+      int arrow_x = SX(2) + box_w + SX(3);
       draw_trend_arrow(ctx, s_cgm_trend[0],
-                       GRect(SX(74), y_cgs, SX(20), cgs_h), col_cgm);
+                       GRect(arrow_x, y_cgs+1, SX(11), cgs_h-2), col_cgm);
+      // #8: delta + age info next to trend arrow
+      char info_str[32];
+      if (s_cgm_age < 60)
+        snprintf(info_str, sizeof(info_str), "%s %dm", s_cgm_delta, s_cgm_age);
+      else
+        snprintf(info_str, sizeof(info_str), "%s %dh", s_cgm_delta, s_cgm_age/60);
+      graphics_context_set_text_color(ctx, col_cgm);
+      graphics_draw_text(ctx, info_str, f_lbl,
+                         GRect(arrow_x + SX(12), y_cgs+(cgs_h-9)/2, SX(21), 9),
+                         GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
     }
 
     graphics_context_set_text_color(ctx, GColorWhite);
@@ -633,6 +695,11 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   GI(KEY_SHAKE_2ND,s_shake_2nd);
   GI(KEY_WDAY_LANG,s_wday_lang);
   GI(KEY_COLOR_GHOST,s_color_ghost); GI(KEY_COLOR_LABEL_TOP,s_color_label_top);
+  GI(KEY_GHOST_ENABLED,s_ghost_enabled);
+  GI(KEY_COLOR_CGM_BANNER,s_color_cgm_banner);
+  GI(KEY_COLOR_TIME2_BG,s_color_time2_bg);
+  GI(KEY_CGM_BOX_ENABLED,s_cgm_box_enabled);
+  GI(KEY_COLOR_CGM_BOX_BG,s_color_cgm_box_bg);
   GS(KEY_CGM_VALUE,s_cgm_value); GS(KEY_CGM_DELTA,s_cgm_delta);
   GS(KEY_CGM_TREND,s_cgm_trend); GI(KEY_CGM_AGE,s_cgm_age);
   GI(KEY_STEPS,s_steps); GI(KEY_HR,s_hr);
@@ -662,6 +729,11 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   persist_write_int(KEY_WDAY_LANG,s_wday_lang);
   persist_write_int(KEY_COLOR_GHOST,s_color_ghost);
   persist_write_int(KEY_COLOR_LABEL_TOP,s_color_label_top);
+  persist_write_int(KEY_GHOST_ENABLED,s_ghost_enabled);
+  persist_write_int(KEY_COLOR_CGM_BANNER,s_color_cgm_banner);
+  persist_write_int(KEY_COLOR_TIME2_BG,s_color_time2_bg);
+  persist_write_int(KEY_CGM_BOX_ENABLED,s_cgm_box_enabled);
+  persist_write_int(KEY_COLOR_CGM_BOX_BG,s_color_cgm_box_bg);
   if (s_canvas) layer_mark_dirty(s_canvas);
 }
 
@@ -682,6 +754,11 @@ static void load_persist(void) {
   LI(KEY_SHAKE_2ND,s_shake_2nd);
   LI(KEY_WDAY_LANG,s_wday_lang);
   LI(KEY_COLOR_GHOST,s_color_ghost); LI(KEY_COLOR_LABEL_TOP,s_color_label_top);
+  LI(KEY_GHOST_ENABLED,s_ghost_enabled);
+  LI(KEY_COLOR_CGM_BANNER,s_color_cgm_banner);
+  LI(KEY_COLOR_TIME2_BG,s_color_time2_bg);
+  LI(KEY_CGM_BOX_ENABLED,s_cgm_box_enabled);
+  LI(KEY_COLOR_CGM_BOX_BG,s_color_cgm_box_bg);
 #undef LS
 #undef LI
 }
@@ -691,6 +768,7 @@ static void window_load(Window *w) {
   s_font_d14_time = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG_TIME52));
   s_font_d7_date  = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG_DATE20));
   s_font_d7_comp  = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG_COMP22));
+  s_font_comp_reg = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG_COMP22_REG));
 
   Layer *root = window_get_root_layer(w);
   s_canvas = layer_create(layer_get_bounds(root));
@@ -704,6 +782,7 @@ static void window_unload(Window *w) {
   if (s_font_d14_time) { fonts_unload_custom_font(s_font_d14_time); s_font_d14_time = NULL; }
   if (s_font_d7_date)  { fonts_unload_custom_font(s_font_d7_date);  s_font_d7_date  = NULL; }
   if (s_font_d7_comp)  { fonts_unload_custom_font(s_font_d7_comp);  s_font_d7_comp  = NULL; }
+  if (s_font_comp_reg) { fonts_unload_custom_font(s_font_comp_reg); s_font_comp_reg = NULL; }
 }
 
 // ── App lifecycle ─────────────────────────────────────────────────────────

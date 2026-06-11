@@ -35,7 +35,12 @@ var K = {
   SHOW_SECONDS:    20,
   COLOR_GHOST:     21,
   COLOR_LABEL_TOP: 22,
-  CGM_VALUE:       50, CGM_DELTA:      51, CGM_TREND:       52,
+  GHOST_ENABLED:      23,
+  COLOR_CGM_BANNER:   24,
+  COLOR_TIME2_BG:     25,
+  CGM_BOX_ENABLED:    35,
+  COLOR_CGM_BOX_BG:   36,
+  CGM_VALUE:          50, CGM_DELTA:      51, CGM_TREND:       52,
   CGM_AGE:         53, STEPS:          54, HR:              55,
   WEATHER_TEMP:    56, WEATHER_ICON:   57, BATT_PCT:        58
 };
@@ -86,8 +91,13 @@ function sendConfig() {
   msg[K.SHAKE_2ND]       = parseInt(config.shake2nd)     || 0;
   msg[K.WDAY_LANG]       = parseInt(config.wdayLang)     || 0;
   msg[K.SHOW_SECONDS]    = parseInt(config.showSeconds)  || 0;
-  msg[K.COLOR_GHOST]     = colorToInt(config.colorGhost    || '#ADADAD');
-  msg[K.COLOR_LABEL_TOP] = colorToInt(config.colorLabelTop || '#FFFFFF');
+  msg[K.COLOR_GHOST]       = colorToInt(config.colorGhost     || '#ADADAD');
+  msg[K.COLOR_LABEL_TOP]   = colorToInt(config.colorLabelTop  || '#FFFFFF');
+  msg[K.GHOST_ENABLED]     = parseInt(config.ghostEnabled) !== 0 ? 1 : 0;
+  msg[K.COLOR_CGM_BANNER]  = colorToInt(config.colorCgmBanner || '#38571A');
+  msg[K.COLOR_TIME2_BG]    = colorToInt(config.colorTime2Bg   || '#EEEEEE');
+  msg[K.CGM_BOX_ENABLED]  = (parseInt(config.cgmBoxEnabled) !== 0) ? 1 : 0;
+  msg[K.COLOR_CGM_BOX_BG] = colorToInt(config.colorCgmBoxBg || '#EEEEEE');
 
   Pebble.sendAppMessage(msg, function() {
     console.log('[CasioCGM] Config sent');
