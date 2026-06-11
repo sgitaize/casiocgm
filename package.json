@@ -43,6 +43,13 @@
           "file": "fonts/DSEG14Classic-Bold.ttf",
           "characterRegex": "[0-9. +-]",
           "size": 22
+        },
+        {
+          "type": "font",
+          "name": "FONT_DSEG_COMP22_REG",
+          "file": "fonts/DSEG14Classic-Regular.ttf",
+          "characterRegex": "[0-9. +-]",
+          "size": 22
         }
       ]
     },
@@ -70,6 +77,9 @@
       "SHOW_SECONDS",
       "COLOR_GHOST",
       "COLOR_LABEL_TOP",
+      "GHOST_ENABLED",
+      "COLOR_CGM_BANNER",
+      "COLOR_TIME2_BG",
       "CGM_VALUE",
       "CGM_DELTA",
       "CGM_TREND",
@@ -78,7 +88,9 @@
       "HR",
       "WEATHER_TEMP",
       "WEATHER_ICON",
-      "BATT_PCT"
+      "BATT_PCT",
+      "CGM_BOX_ENABLED",
+      "COLOR_CGM_BOX_BG"
     ]
   }
 }

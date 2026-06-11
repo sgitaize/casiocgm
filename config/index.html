@@ -327,6 +327,22 @@
         </select>
         <p class="hint" data-en="Shown in the date row while shaking. Lets you quickly see delta, steps, etc." data-de="Wird beim Schütteln in der Datumszeile angezeigt.">Shown in the date row while shaking.</p>
       </div>
+      <div class="field">
+        <label data-en="Ghost segments in complication box" data-de="Geister-Segmente im Komplikationsfeld">Ghost segments</label>
+        <select id="ghostEnabled">
+          <option value="1" data-en="On – show unlit LCD segments (default)" data-de="An – unbeleuchtete LCD-Segmente anzeigen (Standard)">On (default)</option>
+          <option value="0" data-en="Off – show value only" data-de="Aus – nur Wert anzeigen">Off</option>
+        </select>
+        <p class="hint" data-en="Shows faint background segments for a retro LCD look. Uses a lighter 7-seg font." data-de="Zeigt blasse Hintergrundsegmente für einen Retro-LCD-Look.">Retro LCD look behind the value.</p>
+      </div>
+      <div class="field">
+        <label data-en="CGM status box" data-de="CGM-Status-Rahmen">CGM status box</label>
+        <select id="cgmBoxEnabled">
+          <option value="1" data-en="On – border around CGM status (default)" data-de="An – Rahmen um CGM-Status (Standard)">On (default)</option>
+          <option value="0" data-en="Off – no border" data-de="Aus – kein Rahmen">Off</option>
+        </select>
+        <p class="hint" data-en="Draws a border around the CGM Active/Offline status text." data-de="Zeichnet einen Rahmen um den CGM-Status-Text.">Border around CGM status text.</p>
+      </div>
     </div>
   </div>
 
@@ -433,11 +449,21 @@
         </div>
 
         <div class="field">
-          <label data-en="CGM in range" data-de="CGM im Bereich">CGM OK</label>
+          <label data-en="CGM in range (value)" data-de="CGM im Bereich (Wert)">CGM OK</label>
           <div class="color-row">
             <input type="color"  id="colorCgmOkPicker" value="#38571A" oninput="syncColor('colorCgmOk','colorCgmOkPicker')">
             <input type="text"   id="colorCgmOk"        value="#38571A" maxlength="7" oninput="syncColor('colorCgmOkPicker','colorCgmOk',true)">
           </div>
+          <p class="hint" data-en="Colour of the glucose number when in range." data-de="Farbe des Glukosewerts im Zielbereich.">Colour of in-range glucose value.</p>
+        </div>
+
+        <div class="field">
+          <label data-en="CGM Active text" data-de="CGM-Aktiv-Text">CGM Banner</label>
+          <div class="color-row">
+            <input type="color"  id="colorCgmBannerPicker" value="#38571A" oninput="syncColor('colorCgmBanner','colorCgmBannerPicker')">
+            <input type="text"   id="colorCgmBanner"        value="#38571A" maxlength="7" oninput="syncColor('colorCgmBannerPicker','colorCgmBanner',true)">
+          </div>
+          <p class="hint" data-en="Colour of the &quot;CGM Active&quot; status label (bottom-left). Separate from the glucose value colour." data-de="Farbe des &quot;CGM Aktiv&quot;-Status-Labels (unten links). Unabhängig von der Glukosewert-Farbe.">&quot;CGM Active&quot; label colour — independent of value colour.</p>
         </div>
 
         <div class="field">
@@ -472,6 +498,24 @@
             <input type="text"   id="colorLabelTop"        value="#FFFFFF" maxlength="7" oninput="syncColor('colorLabelTopPicker','colorLabelTop',true)">
           </div>
           <p class="hint" data-en="Colour of QUARTZ / TIME 2 labels in the top strip." data-de="Farbe der QUARTZ / TIME 2 Labels im oberen Streifen.">Colour of top-strip labels (QUARTZ / TIME 2).</p>
+        </div>
+
+        <div class="field">
+          <label data-en="Time 2 row background" data-de="Zeit-2-Zeile Hintergrund">Time 2 BG</label>
+          <div class="color-row">
+            <input type="color"  id="colorTime2BgPicker" value="#EEEEEE" oninput="syncColor('colorTime2Bg','colorTime2BgPicker')">
+            <input type="text"   id="colorTime2Bg"        value="#EEEEEE" maxlength="7" oninput="syncColor('colorTime2BgPicker','colorTime2Bg',true)">
+          </div>
+          <p class="hint" data-en="Background tint for the date + complication row. Set same as LCD background for no effect." data-de="Hintergrundfarbe für Datum- und Komplikationszeile. Gleich wie LCD-Hintergrund = kein Effekt.">Tint for date + complication row.</p>
+        </div>
+
+        <div class="field">
+          <label data-en="CGM status box background" data-de="CGM-Status-Rahmen Hintergrund">CGM status box BG</label>
+          <div class="color-row">
+            <input type="color"  id="colorCgmBoxBgPicker" value="#EEEEEE" oninput="syncColor('colorCgmBoxBg','colorCgmBoxBgPicker')">
+            <input type="text"   id="colorCgmBoxBg"        value="#EEEEEE" maxlength="7" oninput="syncColor('colorCgmBoxBgPicker','colorCgmBoxBg',true)">
+          </div>
+          <p class="hint" data-en="Fill color for the CGM status border box. Set same as LCD background for transparent look." data-de="Füllfarbe für den CGM-Status-Rahmen. Gleich wie LCD-Hintergrund = transparenter Look.">Fill for CGM status box. Same as LCD BG = transparent.</p>
         </div>
 
       </div>
@@ -562,11 +606,13 @@ function loadConfig() {
     setVal('dateFormat',    cfg.dateFormat);
     setVal('firstWeekday',  cfg.firstWeekday);
     setVal('shake2nd',      cfg.shake2nd);
+    setVal('ghostEnabled',  cfg.ghostEnabled !== undefined ? String(cfg.ghostEnabled) : '1');
+    setVal('cgmBoxEnabled', cfg.cgmBoxEnabled !== undefined ? String(cfg.cgmBoxEnabled) : '1');
     setVal('wdayLang',      cfg.wdayLang);
     setVal('showSeconds',   cfg.showSeconds);
 
     // Colors stored as #RRGGBB strings
-    var colorFields = ['colorBg', 'colorFg', 'colorAccent', 'colorCgmOk', 'colorCgmHigh', 'colorCgmLow', 'colorGhost', 'colorLabelTop'];
+    var colorFields = ['colorBg', 'colorFg', 'colorAccent', 'colorCgmOk', 'colorCgmBanner', 'colorCgmHigh', 'colorCgmLow', 'colorGhost', 'colorLabelTop', 'colorTime2Bg', 'colorCgmBoxBg'];
     colorFields.forEach(function(f) {
       var v = cfg[f];
       if (v === undefined || v === null) return;
@@ -606,6 +652,8 @@ function save() {
     dateFormat:    document.getElementById('dateFormat').value,
     firstWeekday:  document.getElementById('firstWeekday').value,
     shake2nd:      document.getElementById('shake2nd').value,
+    ghostEnabled:  parseInt(document.getElementById('ghostEnabled').value),
+    cgmBoxEnabled: parseInt(document.getElementById('cgmBoxEnabled').value),
     wdayLang:      document.getElementById('wdayLang').value,
     showSeconds:   document.getElementById('showSeconds').value,
     // Colors as hex strings – index.js converts to int for AppMessage
@@ -613,10 +661,13 @@ function save() {
     colorFg:         document.getElementById('colorFg').value,
     colorAccent:     document.getElementById('colorAccent').value,
     colorCgmOk:      document.getElementById('colorCgmOk').value,
+    colorCgmBanner:  document.getElementById('colorCgmBanner').value,
     colorCgmHigh:    document.getElementById('colorCgmHigh').value,
     colorCgmLow:     document.getElementById('colorCgmLow').value,
     colorGhost:      document.getElementById('colorGhost').value,
-    colorLabelTop:   document.getElementById('colorLabelTop').value
+    colorLabelTop:   document.getElementById('colorLabelTop').value,
+    colorTime2Bg:    document.getElementById('colorTime2Bg').value,
+    colorCgmBoxBg:   document.getElementById('colorCgmBoxBg').value
   };
 
   var encoded = encodeURIComponent(JSON.stringify(cfg));
