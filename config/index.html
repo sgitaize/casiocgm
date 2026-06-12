@@ -564,91 +564,11 @@
       </div>
       <div class="field" id="backlightColorField">
         <label data-en="Backlight colour" data-de="Beleuchtungsfarbe">Backlight colour</label>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
-          <span id="colorBacklightSwatch" style="display:inline-block;width:30px;height:30px;border-radius:5px;border:1px solid #555;background:#FFFFFF;flex-shrink:0;"></span>
-          <select id="colorBacklight" onchange="updateBacklightSwatch();schedulePreview();" style="flex:1;min-width:0;">
-            <optgroup label="Neutral">
-              <option value="#FFFFFF" selected>White</option>
-              <option value="#AAAAAA">Light Gray</option>
-              <option value="#555555">Dark Gray</option>
-              <option value="#000000">Black</option>
-            </optgroup>
-            <optgroup label="Yellow / Warm">
-              <option value="#FFFFAA">Pastel Yellow</option>
-              <option value="#FFFF55">Icterine</option>
-              <option value="#FFFF00">Yellow</option>
-              <option value="#FFAA55">Rajah</option>
-              <option value="#FFAA00">Chrome Yellow</option>
-              <option value="#AAAA55">Brass</option>
-              <option value="#AAAA00">Limerick</option>
-              <option value="#555500">Army Green</option>
-            </optgroup>
-            <optgroup label="Orange / Red">
-              <option value="#FF5500">Orange</option>
-              <option value="#FF5555">Sunset Orange</option>
-              <option value="#AA5500">Windsor Tan</option>
-              <option value="#AA5555">Sunset</option>
-              <option value="#FF0000">Red</option>
-              <option value="#AA0000">Dark Candy Apple Red</option>
-              <option value="#550000">Bulgarian Rose</option>
-            </optgroup>
-            <optgroup label="Pink / Magenta">
-              <option value="#FFAAFF">Lavender Rose</option>
-              <option value="#FFAAAA">Melon</option>
-              <option value="#FF55FF">Brilliant Rose</option>
-              <option value="#FF55AA">Rose Bonbon</option>
-              <option value="#FF00FF">Magenta</option>
-              <option value="#FF00AA">Fashion Magenta</option>
-              <option value="#FF0055">Folly</option>
-              <option value="#AA0055">Jazzberry Jam</option>
-            </optgroup>
-            <optgroup label="Purple">
-              <option value="#AA55FF">Lavender Indigo</option>
-              <option value="#AA55AA">Medium Purple</option>
-              <option value="#AA00FF">Electric Violet</option>
-              <option value="#AA00AA">Purple</option>
-              <option value="#5500FF">Electric Ultramarine</option>
-              <option value="#5500AA">Indigo</option>
-              <option value="#550055">Imperial Purple</option>
-            </optgroup>
-            <optgroup label="Blue">
-              <option value="#AAAAFF">Baby Blue Eyes</option>
-              <option value="#5555FF">Very Light Blue</option>
-              <option value="#5555AA">Liberty</option>
-              <option value="#0055FF">Blue Moon</option>
-              <option value="#0000FF">Blue</option>
-              <option value="#0055AA">Cobalt Blue</option>
-              <option value="#0000AA">Duke Blue</option>
-              <option value="#000055">Oxford Blue</option>
-              <option value="#005555">Midnight Green</option>
-            </optgroup>
-            <optgroup label="Cyan / Teal">
-              <option value="#AAFFFF">Electric Blue</option>
-              <option value="#55FFFF">Medium Turquoise</option>
-              <option value="#00FFFF">Cyan</option>
-              <option value="#55AAFF">Picton Blue</option>
-              <option value="#00AAFF">Vivid Cerulean</option>
-              <option value="#55AAAA">Cadet Blue</option>
-              <option value="#00AAAA">Tiffany Blue</option>
-            </optgroup>
-            <optgroup label="Green">
-              <option value="#AAFFAA">Celeste</option>
-              <option value="#55FFAA">Electric Green</option>
-              <option value="#00FFAA">Medium Spring Green</option>
-              <option value="#AAFF55">Inchworm</option>
-              <option value="#55FF55">Medium Aquamarine</option>
-              <option value="#00FF55">Malachite</option>
-              <option value="#AAFF00">Spring Bud</option>
-              <option value="#55FF00">Screamin Green</option>
-              <option value="#00FF00">Green</option>
-              <option value="#55AA55">May Green</option>
-              <option value="#00AA55">Jaeger Green</option>
-              <option value="#55AA00">Kelly Green</option>
-              <option value="#00AA00">Islamic Green</option>
-              <option value="#005500">Dark Green</option>
-            </optgroup>
-          </select>
+        <div class="color-row">
+          <input type="color" id="colorBacklightPicker" value="#FFFFFF" oninput="syncColor('colorBacklight','colorBacklightPicker')">
+          <input type="text"  id="colorBacklight"        value="#FFFFFF" maxlength="7" oninput="syncColor('colorBacklightPicker','colorBacklight',true)">
         </div>
+        <p class="hint" data-en="Full RGB888 — the LED hardware supports any colour. Try warm white #FFEECC, red #FF2200, green #00FF44, cyan #00FFFF, purple #8800FF." data-de="Volle RGB888 — die LED-Hardware unterstützt jede Farbe. Z.B. Warmweiß #FFEECC, Rot #FF2200, Grün #00FF44, Cyan #00FFFF, Lila #8800FF.">Full RGB · e.g. warm white #FFEECC · red #FF2200 · green #00FF44 · cyan #00FFFF</p>
       </div>
     </div>
   </div>
@@ -708,13 +628,6 @@ function syncColor(targetId, sourceId, fromText) {
     tgt.value = src.value.toUpperCase();
   }
   schedulePreview();
-}
-
-// ── Backlight colour swatch ────────────────────────────────────────────────
-function updateBacklightSwatch() {
-  var sel = document.getElementById('colorBacklight');
-  var sw  = document.getElementById('colorBacklightSwatch');
-  if (sel && sw) sw.style.background = sel.value;
 }
 
 // ── Live Preview ───────────────────────────────────────────────────────────
@@ -1207,7 +1120,6 @@ function loadConfig() {
       setVal(f, hex);
       setVal(f + 'Picker', hex);
     });
-    updateBacklightSwatch();
   } catch (e) {
     console.error('CasioCGM config parse error', e);
   }
@@ -1268,7 +1180,6 @@ function bindPreviewUpdates() {
 
 // ── Init ───────────────────────────────────────────────────────────────────
 loadConfig();
-updateBacklightSwatch();
 bindPreviewUpdates();
 
 // Wait for fonts, then draw
