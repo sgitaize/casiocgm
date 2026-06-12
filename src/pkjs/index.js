@@ -38,6 +38,9 @@ var K = {
   GHOST_ENABLED:      23,
   COLOR_CGM_BANNER:   24,
   COLOR_TIME2_BG:     25,
+  COLOR_CGM_INFO:     26,
+  BACKLIGHT_ENABLED:  27,
+  COLOR_BACKLIGHT:    28,
   CGM_BOX_ENABLED:    35,
   COLOR_CGM_BOX_BG:   36,
   CGM_VALUE:          50, CGM_DELTA:      51, CGM_TREND:       52,
@@ -78,7 +81,7 @@ function sendConfig() {
   msg[K.NS_STALE_MIN]    = parseInt(config.nsStaleMin)  || 10;
   msg[K.COLOR_BG]        = colorToInt(config.colorBg     || '#FFFFFF');
   msg[K.COLOR_FG]        = colorToInt(config.colorFg     || '#000055');
-  msg[K.COLOR_ACCENT]    = colorToInt(config.colorAccent || '#0000FF');
+  msg[K.COLOR_ACCENT]    = colorToInt(config.colorAccent || '#FF0000');
   msg[K.COLOR_CGM_OK]    = colorToInt(config.colorCgmOk  || '#38571A');
   msg[K.COLOR_CGM_HIGH]  = colorToInt(config.colorCgmHigh|| '#FFAA00');
   msg[K.COLOR_CGM_LOW]   = colorToInt(config.colorCgmLow || '#FF0000');
@@ -96,6 +99,9 @@ function sendConfig() {
   msg[K.GHOST_ENABLED]     = parseInt(config.ghostEnabled) !== 0 ? 1 : 0;
   msg[K.COLOR_CGM_BANNER]  = colorToInt(config.colorCgmBanner || '#38571A');
   msg[K.COLOR_TIME2_BG]    = colorToInt(config.colorTime2Bg   || '#EEEEEE');
+  msg[K.COLOR_CGM_INFO]    = colorToInt(config.colorCgmInfo    || '#000044');
+  msg[K.BACKLIGHT_ENABLED] = (parseInt(config.backlightEnabled) !== 0) ? 1 : 0;
+  msg[K.COLOR_BACKLIGHT]   = colorToInt(config.colorBacklight  || '#FFFFFF');
   msg[K.CGM_BOX_ENABLED]  = (parseInt(config.cgmBoxEnabled) !== 0) ? 1 : 0;
   msg[K.COLOR_CGM_BOX_BG] = colorToInt(config.colorCgmBoxBg || '#EEEEEE');
 

@@ -5,6 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>CasioCGM Config</title>
 <style>
+  @font-face {
+    font-family: 'DSEG14';
+    src: url('fonts/DSEG14Classic-Bold.ttf') format('truetype');
+    font-weight: bold;
+    font-style: normal;
+  }
+  @font-face {
+    font-family: 'DSEG14';
+    src: url('fonts/DSEG14Classic-Regular.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+  }
+
   :root {
     --bg:       #0e0e0e;
     --panel:    #161616;
@@ -41,39 +54,21 @@
     justify-content: space-between;
     align-items: center;
   }
-  .header-title {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-  }
+  .header-title { display: flex; flex-direction: column; gap: 1px; }
   .header-label {
-    font-size: 0.6rem;
-    letter-spacing: 3px;
-    color: var(--text2);
-    font-family: var(--font-mono);
-    text-transform: uppercase;
+    font-size: 0.6rem; letter-spacing: 3px; color: var(--text2);
+    font-family: var(--font-mono); text-transform: uppercase;
   }
   .header-name {
-    font-size: 1.25rem;
-    font-weight: bold;
-    letter-spacing: 3px;
-    color: var(--text);
-    font-family: var(--font-mono);
+    font-size: 1.25rem; font-weight: bold; letter-spacing: 3px;
+    color: var(--text); font-family: var(--font-mono);
   }
   .header-name span { color: var(--red); }
-
   #lang-btn {
-    background: transparent;
-    color: var(--text2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 5px 12px;
-    cursor: pointer;
-    font-size: 0.8rem;
+    background: transparent; color: var(--text2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 5px 12px; cursor: pointer; font-size: 0.8rem;
   }
   #lang-btn:hover { border-color: var(--red); color: var(--text); }
-
-  /* ── Bottom red stripe accent under header ───────────────── */
   .header-stripe {
     height: 3px;
     background: linear-gradient(90deg, var(--red) 0%, var(--red-dim) 60%, transparent 100%);
@@ -82,144 +77,127 @@
   /* ── Container ───────────────────────────────────────────── */
   .container { max-width: 480px; margin: 0 auto; padding: 14px 14px 0; }
 
-  /* ── Section cards ───────────────────────────────────────── */
-  .section {
+  /* ── Preview panel ───────────────────────────────────────── */
+  .preview-panel {
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     margin-bottom: 10px;
     overflow: hidden;
   }
-
-  .section-header {
+  .preview-header {
     padding: 9px 14px;
-    font-size: 0.72rem;
-    letter-spacing: 2px;
-    color: var(--text2);
-    text-transform: uppercase;
-    cursor: pointer;
+    font-size: 0.72rem; letter-spacing: 2px; color: var(--text2);
+    text-transform: uppercase; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--font-mono); border-left: 3px solid var(--red);
+    color: var(--text); user-select: none;
+  }
+  .preview-header .arrow { font-size: 0.6rem; transition: transform 0.18s; }
+  .preview-header.collapsed .arrow { transform: rotate(-90deg); }
+  .preview-body {
+    padding: 14px;
+    border-top: 1px solid var(--border);
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
     align-items: center;
+    gap: 10px;
+  }
+  .preview-body.hidden { display: none; }
+  .watch-frame {
+    background: #1a1a1a;
+    border-radius: 18px;
+    padding: 10px 8px;
+    border: 2px solid #333;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+    display: inline-block;
+  }
+  #previewCanvas {
+    display: block;
+    border-radius: 4px;
+    image-rendering: pixelated;
+  }
+  .preview-hint {
+    font-size: 0.65rem; color: var(--text2); text-align: center;
     font-family: var(--font-mono);
-    border-left: 3px solid transparent;
-    transition: border-color 0.15s, color 0.15s;
-    user-select: none;
+  }
+
+  /* ── Section cards ───────────────────────────────────────── */
+  .section {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); margin-bottom: 10px; overflow: hidden;
+  }
+  .section-header {
+    padding: 9px 14px; font-size: 0.72rem; letter-spacing: 2px; color: var(--text2);
+    text-transform: uppercase; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--font-mono); border-left: 3px solid transparent;
+    transition: border-color 0.15s, color 0.15s; user-select: none;
   }
   .section-header:hover  { color: var(--text); border-left-color: var(--red); }
   .section-header.open   { color: var(--text); border-left-color: var(--red); }
   .section-header .arrow { font-size: 0.6rem; transition: transform 0.18s; }
   .section-header.open .arrow { transform: rotate(90deg); }
-
   .section-body { padding: 12px 14px; display: none; border-top: 1px solid var(--border); }
   .section-body.open { display: block; }
 
   /* ── Form fields ─────────────────────────────────────────── */
   .field { margin-bottom: 12px; }
   .field:last-child { margin-bottom: 0; }
-
   .field label {
-    display: block;
-    font-size: 0.72rem;
-    color: var(--text2);
-    margin-bottom: 5px;
-    letter-spacing: 0.5px;
+    display: block; font-size: 0.72rem; color: var(--text2);
+    margin-bottom: 5px; letter-spacing: 0.5px;
   }
-
-  .field input[type=text],
-  .field input[type=url],
-  .field input[type=number],
-  .field select {
-    width: 100%;
-    background: var(--input-bg);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    color: var(--text);
-    padding: 8px 10px;
-    font-size: 0.88rem;
-    outline: none;
-    font-family: inherit;
+  .field input[type=text], .field input[type=url],
+  .field input[type=number], .field select {
+    width: 100%; background: var(--input-bg); border: 1px solid var(--border);
+    border-radius: 4px; color: var(--text); padding: 8px 10px;
+    font-size: 0.88rem; outline: none; font-family: inherit;
   }
-  .field input:focus,
-  .field select:focus { border-color: var(--red); }
-
+  .field input:focus, .field select:focus { border-color: var(--red); }
   .field input[type=color] {
-    width: 44px;
-    height: 34px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    cursor: pointer;
-    background: var(--input-bg);
-    padding: 2px;
+    width: 44px; height: 34px; border: 1px solid var(--border);
+    border-radius: 4px; cursor: pointer; background: var(--input-bg); padding: 2px;
   }
-
   .color-row { display: flex; align-items: center; gap: 8px; }
   .color-row input[type=text] { flex: 1; font-family: var(--font-mono); }
-
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-
-  .hint {
-    font-size: 0.68rem;
-    color: var(--text2);
-    margin-top: 4px;
-    line-height: 1.4;
-  }
+  .hint { font-size: 0.68rem; color: var(--text2); margin-top: 4px; line-height: 1.4; }
 
   /* ── Buttons ─────────────────────────────────────────────── */
-  .btn-row {
-    display: flex;
-    gap: 10px;
-    margin-top: 14px;
-    margin-bottom: 14px;
-  }
+  .btn-row { display: flex; gap: 10px; margin-top: 14px; margin-bottom: 14px; }
   .btn {
-    flex: 1;
-    padding: 12px;
-    border: none;
-    border-radius: var(--radius);
-    font-size: 0.9rem;
-    cursor: pointer;
-    font-weight: bold;
-    letter-spacing: 1px;
-    font-family: var(--font-mono);
-    text-transform: uppercase;
-    transition: opacity 0.15s;
+    flex: 1; padding: 12px; border: none; border-radius: var(--radius);
+    font-size: 0.9rem; cursor: pointer; font-weight: bold; letter-spacing: 1px;
+    font-family: var(--font-mono); text-transform: uppercase; transition: opacity 0.15s;
   }
   .btn:hover { opacity: 0.85; }
   .btn-save   { background: var(--red);  color: #fff; }
   .btn-cancel { background: var(--card); color: var(--text2); border: 1px solid var(--border); }
 
   /* ── Donate ──────────────────────────────────────────────── */
-  .donate {
-    text-align: center;
-    padding: 14px 0 6px;
-    font-size: 0.75rem;
-    color: var(--text2);
-  }
+  .donate { text-align: center; padding: 14px 0 6px; font-size: 0.75rem; color: var(--text2); }
   .donate a {
-    display: inline-block;
-    margin-top: 7px;
-    background: #009cde;
-    color: #fff;
-    text-decoration: none;
-    padding: 7px 18px;
-    border-radius: 20px;
-    font-weight: bold;
-    font-size: 0.8rem;
-    letter-spacing: 1px;
+    display: inline-block; margin-top: 7px; background: #009cde; color: #fff;
+    text-decoration: none; padding: 7px 18px; border-radius: 20px;
+    font-weight: bold; font-size: 0.8rem; letter-spacing: 1px;
   }
   .donate a:hover { background: #007ab8; }
 
   /* ── Version footer ──────────────────────────────────────── */
   .footer {
-    text-align: center;
-    font-size: 0.62rem;
-    color: #3a3a3a;
-    font-family: var(--font-mono);
-    letter-spacing: 1px;
-    margin-top: 8px;
+    text-align: center; font-size: 0.62rem; color: #3a3a3a;
+    font-family: var(--font-mono); letter-spacing: 1px; margin-top: 8px;
   }
+
+  /* ── Color section group label ───────────────────────────── */
+  .color-group-label {
+    font-size: 0.62rem; letter-spacing: 2px; color: #555; text-transform: uppercase;
+    font-family: var(--font-mono); margin-bottom: 8px; margin-top: 14px;
+    border-bottom: 1px solid #2a2a2a; padding-bottom: 4px;
+  }
+  .color-group-label:first-child { margin-top: 0; }
 </style>
 </head>
 <body>
@@ -234,6 +212,20 @@
 <div class="header-stripe"></div>
 
 <div class="container">
+
+  <!-- Live Preview ───────────────────────────────────────── -->
+  <div class="preview-panel">
+    <div class="preview-header" id="preview-toggle" onclick="togglePreview()">
+      <span data-en="LIVE PREVIEW" data-de="LIVE-VORSCHAU">LIVE PREVIEW</span>
+      <span class="arrow">▼</span>
+    </div>
+    <div class="preview-body" id="preview-body">
+      <div class="watch-frame">
+        <canvas id="previewCanvas" width="200" height="228"></canvas>
+      </div>
+      <div class="preview-hint" data-en="Updates live as you change settings below" data-de="Aktualisiert sich live beim Ändern der Einstellungen">Updates live as you change settings below</div>
+    </div>
+  </div>
 
   <!-- Nightscout ─────────────────────────────────────────── -->
   <div class="section">
@@ -279,18 +271,18 @@
           <option value="1" data-en="Yes – fetch at last reading + interval + 30 s (recommended)" data-de="Ja – Abruf bei letztem Wert + Intervall + 30 s (empfohlen)">Yes (recommended)</option>
           <option value="0" data-en="No – fetch every manual interval" data-de="Nein – Abruf alle x Minuten">No (manual interval)</option>
         </select>
-        <p class="hint" data-en="Synced mode schedules each fetch just after the CGM sensor is expected to report, minimising stale data." data-de="Sync-Modus plant den Abruf kurz nach dem erwarteten CGM-Intervall, um veraltete Daten zu minimieren.">Synced mode fetches right after the next reading is expected.</p>
+        <p class="hint" data-en="Synced mode schedules each fetch just after the CGM sensor is expected to report." data-de="Sync-Modus plant den Abruf kurz nach dem erwarteten CGM-Intervall.">Synced mode fetches right after the next reading is expected.</p>
       </div>
       <div class="row2">
         <div class="field">
           <label data-en="CGM interval (min)" data-de="CGM-Intervall (Min.)">CGM interval (min)</label>
           <input type="number" id="bgFetchIntervalMin" value="5" min="1" max="20">
-          <p class="hint" data-en="Sensor reporting interval: 5 for Dexcom, 15 for Libre." data-de="Sensor-Intervall: 5 für Dexcom, 15 für Libre.">5 = Dexcom, 15 = Libre</p>
+          <p class="hint" data-en="Sensor interval: 5 = Dexcom, 15 = Libre." data-de="Sensor-Intervall: 5 = Dexcom, 15 = Libre.">5 = Dexcom, 15 = Libre</p>
         </div>
         <div class="field">
           <label data-en="Fallback interval (min)" data-de="Ersatz-Intervall (Min.)">Fallback (min)</label>
           <input type="number" id="bgManualIntervalMin" value="5" min="1" max="60">
-          <p class="hint" data-en="Used when sync is off, or as a maximum timeout." data-de="Genutzt wenn Sync aus ist, oder als maximales Timeout.">Used when sync is off or as max timeout.</p>
+          <p class="hint" data-en="Used when sync is off or as max timeout." data-de="Genutzt wenn Sync aus ist oder als maximales Timeout.">Used when sync is off or as max timeout.</p>
         </div>
       </div>
     </div>
@@ -306,12 +298,12 @@
       <div class="field">
         <label data-en="Primary complication (5-digit box)" data-de="Primäre Komplikation (5-stellig)">Primary complication</label>
         <select id="complication">
-          <option value="0" data-en="CGM / Blood Glucose"      data-de="CGM / Blutzucker">CGM / Blood Glucose</option>
-          <option value="1" data-en="Step Count"               data-de="Schritte">Step Count</option>
-          <option value="2" data-en="Heart Rate (BPM)"         data-de="Herzrate (BPM)">Heart Rate (BPM)</option>
-          <option value="3" data-en="Weather Temperature"      data-de="Temperatur">Weather Temperature</option>
-          <option value="4" data-en="Battery %"                data-de="Akku %">Battery %</option>
-          <option value="5" data-en="Alternate Date"           data-de="Alternatives Datum">Alternate Date</option>
+          <option value="0" data-en="CGM / Blood Glucose" data-de="CGM / Blutzucker">CGM / Blood Glucose</option>
+          <option value="1" data-en="Step Count"          data-de="Schritte">Step Count</option>
+          <option value="2" data-en="Heart Rate (BPM)"    data-de="Herzrate (BPM)">Heart Rate (BPM)</option>
+          <option value="3" data-en="Weather Temperature" data-de="Temperatur">Weather Temperature</option>
+          <option value="4" data-en="Battery %"           data-de="Akku %">Battery %</option>
+          <option value="5" data-en="Alternate Date"      data-de="Alternatives Datum">Alternate Date</option>
         </select>
         <p class="hint" data-en="Shake the watch to cycle complications for 5 s." data-de="Uhr schütteln, um Komplikationen 5 Sek. lang durchzublättern.">Shake watch to cycle through all complications for 5 seconds.</p>
       </div>
@@ -325,23 +317,22 @@
           <option value="4" data-en="Weather Temp"        data-de="Temperatur">Weather Temp</option>
           <option value="5" data-en="None (keep date)"    data-de="Keine (Datum bleibt)">None (keep date)</option>
         </select>
-        <p class="hint" data-en="Shown in the date row while shaking. Lets you quickly see delta, steps, etc." data-de="Wird beim Schütteln in der Datumszeile angezeigt.">Shown in the date row while shaking.</p>
       </div>
       <div class="field">
         <label data-en="Ghost segments in complication box" data-de="Geister-Segmente im Komplikationsfeld">Ghost segments</label>
         <select id="ghostEnabled">
-          <option value="1" data-en="On – show unlit LCD segments (default)" data-de="An – unbeleuchtete LCD-Segmente anzeigen (Standard)">On (default)</option>
-          <option value="0" data-en="Off – show value only" data-de="Aus – nur Wert anzeigen">Off</option>
+          <option value="1" data-en="On – show unlit LCD segments (default)" data-de="An – unbeleuchtete LCD-Segmente (Standard)">On (default)</option>
+          <option value="0" data-en="Off – show value only"                   data-de="Aus – nur Wert anzeigen">Off</option>
         </select>
-        <p class="hint" data-en="Shows faint background segments for a retro LCD look. Uses a lighter 7-seg font." data-de="Zeigt blasse Hintergrundsegmente für einen Retro-LCD-Look.">Retro LCD look behind the value.</p>
+        <p class="hint" data-en="Faint background segments for a retro LCD look." data-de="Blasse Hintergrundsegmente für einen Retro-LCD-Look.">Retro LCD look behind the value.</p>
       </div>
       <div class="field">
         <label data-en="CGM status box" data-de="CGM-Status-Rahmen">CGM status box</label>
         <select id="cgmBoxEnabled">
           <option value="1" data-en="On – border around CGM status (default)" data-de="An – Rahmen um CGM-Status (Standard)">On (default)</option>
-          <option value="0" data-en="Off – no border" data-de="Aus – kein Rahmen">Off</option>
+          <option value="0" data-en="Off – no border"                          data-de="Aus – kein Rahmen">Off</option>
         </select>
-        <p class="hint" data-en="Draws a border around the CGM Active/Offline status text." data-de="Zeichnet einen Rahmen um den CGM-Status-Text.">Border around CGM status text.</p>
+        <p class="hint" data-en="Draws a rounded border box around the CGM Active / Offline status text." data-de="Zeichnet einen abgerundeten Rahmen um den CGM-Status-Text.">Rounded border around CGM status text.</p>
       </div>
     </div>
   </div>
@@ -364,9 +355,9 @@
         </div>
       </div>
       <div class="field">
-        <label data-en="Bottom banner" data-de="Unterer Banner">Bottom banner</label>
+        <label data-en="Bottom banner (when CGM active)" data-de="Unterer Banner (wenn CGM aktiv)">Bottom banner</label>
         <input type="text" id="labelBottom" value="CGM Enabled" maxlength="20">
-        <p class="hint" data-en="Shown in the accent strip when CGM is active. Errors (no URL, no connection) override this." data-de="Wird im Akzent-Streifen angezeigt wenn CGM aktiv. Fehler (kein URL, keine Verbindung) überschreiben den Text.">Shown in accent strip. Errors override this automatically.</p>
+        <p class="hint" data-en="Shown in the accent strip when CGM is active. Errors (no URL, no connection) override this." data-de="Wird im Akzent-Streifen angezeigt wenn CGM aktiv. Fehler überschreiben den Text.">Shown when CGM is active. Errors override this automatically.</p>
       </div>
     </div>
   </div>
@@ -374,7 +365,7 @@
   <!-- Date & Time ────────────────────────────────────────── -->
   <div class="section">
     <div class="section-header" onclick="toggleSection(this)">
-      <span data-en="DATE & TIME" data-de="DATUM & UHRZEIT">DATE & TIME</span>
+      <span data-en="DATE &amp; TIME" data-de="DATUM &amp; UHRZEIT">DATE &amp; TIME</span>
       <span class="arrow">▶</span>
     </div>
     <div class="section-body">
@@ -398,8 +389,8 @@
         <div class="field">
           <label data-en="Weekday language" data-de="Wochentag-Sprache">Weekday language</label>
           <select id="wdayLang">
-            <option value="0" data-en="English (S M T W T F S)" data-de="Englisch (S M T W T F S)">English (S M T W T F S)</option>
-            <option value="1" data-en="German (S M D M D F S)" data-de="Deutsch (S M D M D F S)">German (S M D M D F S)</option>
+            <option value="0" data-en="English (S M T W T F S)" data-de="Englisch (S M T W T F S)">English</option>
+            <option value="1" data-en="German (S M D M D F S)"  data-de="Deutsch (S M D M D F S)">German</option>
           </select>
         </div>
         <div class="field">
@@ -408,7 +399,7 @@
             <option value="0" data-en="Show" data-de="Anzeigen">Show</option>
             <option value="1" data-en="Hide" data-de="Ausblenden">Hide</option>
           </select>
-          <p class="hint" data-en="Applies to non-emery platforms only." data-de="Nur auf Nicht-Emery-Plattformen.">Non-emery platforms only.</p>
+          <p class="hint" data-en="Non-emery platforms only." data-de="Nur auf Nicht-Emery-Plattformen.">Non-emery only.</p>
         </div>
       </div>
     </div>
@@ -422,102 +413,162 @@
     </div>
     <div class="section-body">
       <p class="hint" style="margin-bottom:12px" data-en="Colors apply on Pebble Time / Time 2 (color display). Black &amp; white on aplite/diorite." data-de="Farben nur auf Pebble Time / Time 2. Aplite/Diorite zeigen immer Schwarz/Weiß.">Colors apply on Pebble Time / Time 2 (color display) only.</p>
+
+      <!-- LCD area -->
+      <p class="color-group-label" data-en="── LCD SCREEN ──" data-de="── LCD-BILDSCHIRM ──">── LCD SCREEN ──</p>
       <div class="color-grid">
 
         <div class="field">
-          <label data-en="Background" data-de="Hintergrund">Background</label>
+          <label data-en="LCD background" data-de="LCD-Hintergrund">LCD background</label>
           <div class="color-row">
-            <input type="color"  id="colorBgPicker"  value="#FFFFFF" oninput="syncColor('colorBg','colorBgPicker')">
-            <input type="text"   id="colorBg"         value="#FFFFFF" maxlength="7" oninput="syncColor('colorBgPicker','colorBg',true)">
+            <input type="color" id="colorBgPicker" value="#EEEEEE" oninput="syncColor('colorBg','colorBgPicker')">
+            <input type="text"  id="colorBg"        value="#EEEEEE" maxlength="7" oninput="syncColor('colorBgPicker','colorBg',true)">
+          </div>
+          <p class="hint" data-en="Fill of the LCD screen area." data-de="Füllfarbe des LCD-Bildschirmbereichs.">LCD screen fill.</p>
+        </div>
+
+        <div class="field">
+          <label data-en="LCD text &amp; borders" data-de="LCD Text &amp; Rahmen">LCD text &amp; borders</label>
+          <div class="color-row">
+            <input type="color" id="colorFgPicker" value="#000055" oninput="syncColor('colorFg','colorFgPicker')">
+            <input type="text"  id="colorFg"        value="#000055" maxlength="7" oninput="syncColor('colorFgPicker','colorFg',true)">
+          </div>
+          <p class="hint" data-en="Time digits, date, borders, battery bar, weekday labels." data-de="Ziffern, Datum, Rahmen, Akkubalken, Wochentags-Labels.">Digits, borders, battery bar, weekday labels.</p>
+        </div>
+
+        <div class="field">
+          <label data-en="LCD unlit segments" data-de="LCD Geister-Segmente">LCD unlit segments</label>
+          <div class="color-row">
+            <input type="color" id="colorGhostPicker" value="#ADADAD" oninput="syncColor('colorGhost','colorGhostPicker')">
+            <input type="text"  id="colorGhost"        value="#ADADAD" maxlength="7" oninput="syncColor('colorGhostPicker','colorGhost',true)">
+          </div>
+          <p class="hint" data-en="Colour of unlit digit segments (ghost 8s). Lighter = more subtle." data-de="Farbe der nicht leuchtenden Segmente (Ghost-8en). Heller = dezenter.">Ghost digit segments (lighter = more subtle).</p>
+        </div>
+
+        <div class="field">
+          <label data-en="Date row background" data-de="Datumszeile Hintergrund">Date row background</label>
+          <div class="color-row">
+            <input type="color" id="colorTime2BgPicker" value="#EEEEEE" oninput="syncColor('colorTime2Bg','colorTime2BgPicker')">
+            <input type="text"  id="colorTime2Bg"        value="#EEEEEE" maxlength="7" oninput="syncColor('colorTime2BgPicker','colorTime2Bg',true)">
+          </div>
+          <p class="hint" data-en="Tinted strip behind the date + complication row. Same as LCD BG = no effect." data-de="Getönter Streifen hinter Datum- und Komplikationszeile. Gleich wie LCD-BG = kein Effekt.">Tint behind date + complication. Same as LCD BG = no effect.</p>
+        </div>
+
+      </div>
+
+      <!-- Casio frame -->
+      <p class="color-group-label" data-en="── WATCH FRAME ──" data-de="── GEHÄUSE ──">── WATCH FRAME ──</p>
+      <div class="color-grid">
+
+        <div class="field">
+          <label data-en="Casio accent bands" data-de="Casio-Akzentbänder">Casio accent bands</label>
+          <div class="color-row">
+            <input type="color" id="colorAccentPicker" value="#FF0000" oninput="syncColor('colorAccent','colorAccentPicker')">
+            <input type="text"  id="colorAccent"        value="#FF0000" maxlength="7" oninput="syncColor('colorAccentPicker','colorAccent',true)">
+          </div>
+          <p class="hint" data-en="The two red horizontal Casio stripes (top &amp; bottom)." data-de="Die zwei roten horizontalen Casio-Streifen (oben &amp; unten).">The two red Casio stripes (top &amp; bottom).</p>
+        </div>
+
+        <div class="field">
+          <label data-en="Top strip label text" data-de="Obere Leiste, Beschriftung">Top strip labels</label>
+          <div class="color-row">
+            <input type="color" id="colorLabelTopPicker" value="#FFFFFF" oninput="syncColor('colorLabelTop','colorLabelTopPicker')">
+            <input type="text"  id="colorLabelTop"        value="#FFFFFF" maxlength="7" oninput="syncColor('colorLabelTopPicker','colorLabelTop',true)">
+          </div>
+          <p class="hint" data-en="Colour of the QUARTZ / TIME 2 labels in the top strip." data-de="Farbe der QUARTZ / TIME 2 Labels im oberen Streifen.">QUARTZ / TIME 2 label text.</p>
+        </div>
+
+      </div>
+
+      <!-- Glucose values -->
+      <p class="color-group-label" data-en="── GLUCOSE VALUES ──" data-de="── GLUKOSEWERTE ──">── GLUCOSE VALUES ──</p>
+      <div class="color-grid">
+
+        <div class="field">
+          <label data-en="Glucose – in range" data-de="Glukose – im Zielbereich">Glucose – in range</label>
+          <div class="color-row">
+            <input type="color" id="colorCgmOkPicker" value="#38571A" oninput="syncColor('colorCgmOk','colorCgmOkPicker')">
+            <input type="text"  id="colorCgmOk"        value="#38571A" maxlength="7" oninput="syncColor('colorCgmOkPicker','colorCgmOk',true)">
+          </div>
+          <p class="hint" data-en="Glucose value in the complication box when within range." data-de="Glukosewert in der Komplikationsbox wenn im Zielbereich.">Complication box value when in range.</p>
+        </div>
+
+        <div class="field">
+          <label data-en="Glucose – above range" data-de="Glukose – zu hoch">Glucose – above range</label>
+          <div class="color-row">
+            <input type="color" id="colorCgmHighPicker" value="#FFAA00" oninput="syncColor('colorCgmHigh','colorCgmHighPicker')">
+            <input type="text"  id="colorCgmHigh"        value="#FFAA00" maxlength="7" oninput="syncColor('colorCgmHighPicker','colorCgmHigh',true)">
           </div>
         </div>
 
         <div class="field">
-          <label data-en="Foreground / Text" data-de="Vordergrund / Text">Foreground</label>
+          <label data-en="Glucose – below range" data-de="Glukose – zu niedrig">Glucose – below range</label>
           <div class="color-row">
-            <input type="color"  id="colorFgPicker"  value="#000055" oninput="syncColor('colorFg','colorFgPicker')">
-            <input type="text"   id="colorFg"         value="#000055" maxlength="7" oninput="syncColor('colorFgPicker','colorFg',true)">
+            <input type="color" id="colorCgmLowPicker" value="#FF0000" oninput="syncColor('colorCgmLow','colorCgmLowPicker')">
+            <input type="text"  id="colorCgmLow"        value="#FF0000" maxlength="7" oninput="syncColor('colorCgmLowPicker','colorCgmLow',true)">
           </div>
+        </div>
+
+      </div>
+
+      <!-- CGM status section -->
+      <p class="color-group-label" data-en="── CGM STATUS BAR ──" data-de="── CGM-STATUSLEISTE ──">── CGM STATUS BAR ──</p>
+      <div class="color-grid">
+
+        <div class="field">
+          <label data-en="CGM status label text" data-de="CGM-Status-Text">CGM status label</label>
+          <div class="color-row">
+            <input type="color" id="colorCgmBannerPicker" value="#38571A" oninput="syncColor('colorCgmBanner','colorCgmBannerPicker')">
+            <input type="text"  id="colorCgmBanner"        value="#38571A" maxlength="7" oninput="syncColor('colorCgmBannerPicker','colorCgmBanner',true)">
+          </div>
+          <p class="hint" data-en="Colour of the &quot;CGM Active&quot; text &amp; box border (bottom-left). Independent of glucose value colour." data-de="Farbe des &quot;CGM Aktiv&quot;-Texts &amp; Rahmens (unten links). Unabhängig vom Glukosewert.">&quot;CGM Active&quot; text &amp; box border. Independent of glucose colour.</p>
         </div>
 
         <div class="field">
-          <label data-en="Accent (pebble label, banner)" data-de="Akzent (Label, Banner)">Accent</label>
+          <label data-en="CGM box fill" data-de="CGM-Box Füllfarbe">CGM box fill</label>
           <div class="color-row">
-            <input type="color"  id="colorAccentPicker" value="#FFAA00" oninput="syncColor('colorAccent','colorAccentPicker')">
-            <input type="text"   id="colorAccent"        value="#FFAA00" maxlength="7" oninput="syncColor('colorAccentPicker','colorAccent',true)">
+            <input type="color" id="colorCgmBoxBgPicker" value="#EEEEEE" oninput="syncColor('colorCgmBoxBg','colorCgmBoxBgPicker')">
+            <input type="text"  id="colorCgmBoxBg"        value="#EEEEEE" maxlength="7" oninput="syncColor('colorCgmBoxBgPicker','colorCgmBoxBg',true)">
           </div>
+          <p class="hint" data-en="Background fill of the CGM status box. Same as LCD BG = transparent." data-de="Füllfarbe der CGM-Status-Box. Gleich wie LCD-BG = transparent.">CGM box background. Same as LCD BG = transparent.</p>
         </div>
 
         <div class="field">
-          <label data-en="CGM in range (value)" data-de="CGM im Bereich (Wert)">CGM OK</label>
+          <label data-en="CGM trend arrow &amp; delta" data-de="CGM Pfeil &amp; Delta">CGM trend &amp; delta</label>
           <div class="color-row">
-            <input type="color"  id="colorCgmOkPicker" value="#38571A" oninput="syncColor('colorCgmOk','colorCgmOkPicker')">
-            <input type="text"   id="colorCgmOk"        value="#38571A" maxlength="7" oninput="syncColor('colorCgmOkPicker','colorCgmOk',true)">
+            <input type="color" id="colorCgmInfoPicker" value="#000044" oninput="syncColor('colorCgmInfo','colorCgmInfoPicker')">
+            <input type="text"  id="colorCgmInfo"        value="#000044" maxlength="7" oninput="syncColor('colorCgmInfoPicker','colorCgmInfo',true)">
           </div>
-          <p class="hint" data-en="Colour of the glucose number when in range." data-de="Farbe des Glukosewerts im Zielbereich.">Colour of in-range glucose value.</p>
+          <p class="hint" data-en="Colour of the trend arrow and &quot;+2 3m&quot; delta/age text next to the CGM status box." data-de="Farbe des Trendpfeils und des &quot;+2 3m&quot;-Texts neben der CGM-Status-Box.">Trend arrow and delta/age text next to CGM box.</p>
         </div>
 
-        <div class="field">
-          <label data-en="CGM Active text" data-de="CGM-Aktiv-Text">CGM Banner</label>
-          <div class="color-row">
-            <input type="color"  id="colorCgmBannerPicker" value="#38571A" oninput="syncColor('colorCgmBanner','colorCgmBannerPicker')">
-            <input type="text"   id="colorCgmBanner"        value="#38571A" maxlength="7" oninput="syncColor('colorCgmBannerPicker','colorCgmBanner',true)">
-          </div>
-          <p class="hint" data-en="Colour of the &quot;CGM Active&quot; status label (bottom-left). Separate from the glucose value colour." data-de="Farbe des &quot;CGM Aktiv&quot;-Status-Labels (unten links). Unabhängig von der Glukosewert-Farbe.">&quot;CGM Active&quot; label colour — independent of value colour.</p>
-        </div>
+      </div>
+    </div>
+  </div>
 
-        <div class="field">
-          <label data-en="CGM high" data-de="CGM hoch">CGM High</label>
-          <div class="color-row">
-            <input type="color"  id="colorCgmHighPicker" value="#FFAA00" oninput="syncColor('colorCgmHigh','colorCgmHighPicker')">
-            <input type="text"   id="colorCgmHigh"        value="#FFAA00" maxlength="7" oninput="syncColor('colorCgmHighPicker','colorCgmHigh',true)">
-          </div>
+  <!-- Backlight ──────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <span data-en="BACKLIGHT" data-de="BELEUCHTUNG">BACKLIGHT</span>
+      <span class="arrow">▶</span>
+    </div>
+    <div class="section-body">
+      <p class="hint" style="margin-bottom:12px" data-en="Pebble Time 2 supports a colour backlight. The light activates on wrist-raise or button press — you choose the tint. On older Pebble models this has no effect." data-de="Die Pebble Time 2 unterstützt farbige Hintergrundbeleuchtung. Das Licht aktiviert sich bei Bewegung oder Tastendruck — du wählst den Farbton. Auf älteren Pebble-Modellen ohne Effekt.">Pebble Time 2 supports a colour backlight. Activates on wrist-raise or button press.</p>
+      <div class="field">
+        <label data-en="Backlight colour mode" data-de="Beleuchtungsmodus">Backlight mode</label>
+        <select id="backlightEnabled" onchange="schedulePreview()">
+          <option value="1" data-en="Custom colour (set below)" data-de="Benutzerdefinierte Farbe (unten wählen)">Custom colour</option>
+          <option value="0" data-en="System default (white)"    data-de="Systemstandard (weiß)">System default (white)</option>
+        </select>
+        <p class="hint" data-en="Custom: use the colour you pick below. System default: standard white light." data-de="Benutzerdefiniert: wähle die Farbe unten. Systemstandard: normales weißes Licht.">Custom uses the colour below; System default uses standard white.</p>
+      </div>
+      <div class="field" id="backlightColorField">
+        <label data-en="Backlight colour" data-de="Beleuchtungsfarbe">Backlight colour</label>
+        <div class="color-row">
+          <input type="color" id="colorBacklightPicker" value="#FFFFFF" oninput="syncColor('colorBacklight','colorBacklightPicker')">
+          <input type="text"  id="colorBacklight"        value="#FFFFFF" maxlength="7" oninput="syncColor('colorBacklightPicker','colorBacklight',true)">
         </div>
-
-        <div class="field">
-          <label data-en="CGM low" data-de="CGM niedrig">CGM Low</label>
-          <div class="color-row">
-            <input type="color"  id="colorCgmLowPicker" value="#FF0000" oninput="syncColor('colorCgmLow','colorCgmLowPicker')">
-            <input type="text"   id="colorCgmLow"        value="#FF0000" maxlength="7" oninput="syncColor('colorCgmLowPicker','colorCgmLow',true)">
-          </div>
-        </div>
-
-        <div class="field">
-          <label data-en="Ghost segments" data-de="Geister-Segmente">Ghost segments</label>
-          <div class="color-row">
-            <input type="color"  id="colorGhostPicker" value="#ADADAD" oninput="syncColor('colorGhost','colorGhostPicker')">
-            <input type="text"   id="colorGhost"        value="#ADADAD" maxlength="7" oninput="syncColor('colorGhostPicker','colorGhost',true)">
-          </div>
-          <p class="hint" data-en="Unlit LCD segment colour. Lighter = more subtle." data-de="Farbe der unbeleuchteten LCD-Segmente. Heller = dezenter.">Unlit LCD segment colour.</p>
-        </div>
-
-        <div class="field">
-          <label data-en="Top banner labels" data-de="Obere Banner-Labels">Top banner labels</label>
-          <div class="color-row">
-            <input type="color"  id="colorLabelTopPicker" value="#FFFFFF" oninput="syncColor('colorLabelTop','colorLabelTopPicker')">
-            <input type="text"   id="colorLabelTop"        value="#FFFFFF" maxlength="7" oninput="syncColor('colorLabelTopPicker','colorLabelTop',true)">
-          </div>
-          <p class="hint" data-en="Colour of QUARTZ / TIME 2 labels in the top strip." data-de="Farbe der QUARTZ / TIME 2 Labels im oberen Streifen.">Colour of top-strip labels (QUARTZ / TIME 2).</p>
-        </div>
-
-        <div class="field">
-          <label data-en="Time 2 row background" data-de="Zeit-2-Zeile Hintergrund">Time 2 BG</label>
-          <div class="color-row">
-            <input type="color"  id="colorTime2BgPicker" value="#EEEEEE" oninput="syncColor('colorTime2Bg','colorTime2BgPicker')">
-            <input type="text"   id="colorTime2Bg"        value="#EEEEEE" maxlength="7" oninput="syncColor('colorTime2BgPicker','colorTime2Bg',true)">
-          </div>
-          <p class="hint" data-en="Background tint for the date + complication row. Set same as LCD background for no effect." data-de="Hintergrundfarbe für Datum- und Komplikationszeile. Gleich wie LCD-Hintergrund = kein Effekt.">Tint for date + complication row.</p>
-        </div>
-
-        <div class="field">
-          <label data-en="CGM status box background" data-de="CGM-Status-Rahmen Hintergrund">CGM status box BG</label>
-          <div class="color-row">
-            <input type="color"  id="colorCgmBoxBgPicker" value="#EEEEEE" oninput="syncColor('colorCgmBoxBg','colorCgmBoxBgPicker')">
-            <input type="text"   id="colorCgmBoxBg"        value="#EEEEEE" maxlength="7" oninput="syncColor('colorCgmBoxBgPicker','colorCgmBoxBg',true)">
-          </div>
-          <p class="hint" data-en="Fill color for the CGM status border box. Set same as LCD background for transparent look." data-de="Füllfarbe für den CGM-Status-Rahmen. Gleich wie LCD-Hintergrund = transparenter Look.">Fill for CGM status box. Same as LCD BG = transparent.</p>
-        </div>
-
+        <p class="hint" data-en="Try warm white (#FFEECC), green (#00FF44), cyan (#00FFFF), or soft blue (#8888FF). The Pebble LED can show any RGB colour — be creative!" data-de="Probiere Warmweiß (#FFEECC), Grün (#00FF44), Cyan (#00FFFF) oder sanftes Blau (#8888FF). Die Pebble-LED kann jeden RGB-Farbton anzeigen.">Try: warm white #FFEECC · green #00FF44 · cyan #00FFFF · blue #8888FF</p>
       </div>
     </div>
   </div>
@@ -541,30 +592,32 @@
 <script>
 // ── i18n ──────────────────────────────────────────────────────────────────
 var lang = 'en';
-
 function toggleLang() {
   lang = (lang === 'en') ? 'de' : 'en';
   document.getElementById('lang-btn').textContent = (lang === 'en') ? 'DE' : 'EN';
   document.querySelectorAll('[data-en]').forEach(function(el) {
-    // skip inputs (value would be overwritten)
-    if (el.tagName === 'INPUT' || el.tagName === 'BUTTON') {
-      el.textContent = el.getAttribute('data-' + lang);
-    } else {
-      el.textContent = el.getAttribute('data-' + lang);
-    }
+    el.textContent = el.getAttribute('data-' + lang);
   });
   document.querySelectorAll('option[data-en]').forEach(function(el) {
     el.textContent = el.getAttribute('data-' + lang);
   });
 }
 
-// ── Section toggle ────────────────────────────────────────────────────────
+// ── Section toggle ─────────────────────────────────────────────────────────
 function toggleSection(header) {
   header.classList.toggle('open');
   header.nextElementSibling.classList.toggle('open');
 }
 
-// ── Color sync ────────────────────────────────────────────────────────────
+// ── Preview toggle ─────────────────────────────────────────────────────────
+function togglePreview() {
+  var toggle = document.getElementById('preview-toggle');
+  var body   = document.getElementById('preview-body');
+  toggle.classList.toggle('collapsed');
+  body.classList.toggle('hidden');
+}
+
+// ── Color sync ─────────────────────────────────────────────────────────────
 function syncColor(targetId, sourceId, fromText) {
   var src = document.getElementById(sourceId);
   var tgt = document.getElementById(targetId);
@@ -574,27 +627,470 @@ function syncColor(targetId, sourceId, fromText) {
   } else {
     tgt.value = src.value.toUpperCase();
   }
+  schedulePreview();
 }
 
-// ── Load existing config from Pebble URL query param ─────────────────────
+// ── Live Preview ───────────────────────────────────────────────────────────
+var previewTimer = null;
+function schedulePreview() {
+  if (previewTimer) clearTimeout(previewTimer);
+  previewTimer = setTimeout(drawPreview, 80);
+}
+
+// ── Canvas helpers ─────────────────────────────────────────────────────────
+function SX(x) { return Math.round(x * 200 / 144); }
+function SY(y) { return Math.round(y * 228 / 168); }
+function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+
+function roundRect(ctx, x, y, w, h, r) {
+  if (r < 0) r = 0;
+  if (r > w / 2) r = w / 2;
+  if (r > h / 2) r = h / 2;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// Draw trend arrow (same logic as C)
+function drawTrendArrow(ctx, trend, x, y, w, h, color) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = 'round';
+  var cx = Math.round(x + w / 2);
+  var cy = Math.round(y + h / 2);
+  var ah = Math.round(Math.min(w, h) * 0.38);
+
+  ctx.beginPath();
+  if (trend === '-') { // Flat →
+    ctx.moveTo(cx - ah, cy); ctx.lineTo(cx + ah, cy);
+    ctx.moveTo(cx + ah, cy); ctx.lineTo(cx + ah - ah/2, cy - ah/2);
+    ctx.moveTo(cx + ah, cy); ctx.lineTo(cx + ah - ah/2, cy + ah/2);
+  } else if (trend === 'u') { // SingleUp ↑
+    ctx.moveTo(cx, cy + ah); ctx.lineTo(cx, cy - ah + 1);
+    ctx.moveTo(cx, cy - ah); ctx.lineTo(cx - ah, cy);
+    ctx.moveTo(cx, cy - ah); ctx.lineTo(cx + ah, cy);
+  } else if (trend === 'd') { // SingleDown ↓
+    ctx.moveTo(cx, cy - ah); ctx.lineTo(cx, cy + ah - 1);
+    ctx.moveTo(cx, cy + ah); ctx.lineTo(cx - ah, cy);
+    ctx.moveTo(cx, cy + ah); ctx.lineTo(cx + ah, cy);
+  } else if (trend === 'r') { // FortyFiveUp ↗
+    ctx.moveTo(cx - ah, cy + ah); ctx.lineTo(cx + ah, cy - ah);
+    ctx.moveTo(cx + ah, cy - ah); ctx.lineTo(cx + ah, cy);
+    ctx.moveTo(cx + ah, cy - ah); ctx.lineTo(cx, cy - ah);
+  } else if (trend === 'f') { // FortyFiveDown ↘
+    ctx.moveTo(cx - ah, cy - ah); ctx.lineTo(cx + ah, cy + ah);
+    ctx.moveTo(cx + ah, cy + ah); ctx.lineTo(cx + ah, cy);
+    ctx.moveTo(cx + ah, cy + ah); ctx.lineTo(cx, cy + ah);
+  } else if (trend === 'U') { // DoubleUp ↑↑
+    ctx.moveTo(cx, cy - ah - 1); ctx.lineTo(cx - ah, cy - 1);
+    ctx.moveTo(cx, cy - ah - 1); ctx.lineTo(cx + ah, cy - 1);
+    ctx.moveTo(cx, cy + 1);      ctx.lineTo(cx - ah, cy + ah + 1);
+    ctx.moveTo(cx, cy + 1);      ctx.lineTo(cx + ah, cy + ah + 1);
+  } else if (trend === 'D') { // DoubleDown ↓↓
+    ctx.moveTo(cx, cy - 1);      ctx.lineTo(cx - ah, cy - ah - 1);
+    ctx.moveTo(cx, cy - 1);      ctx.lineTo(cx + ah, cy - ah - 1);
+    ctx.moveTo(cx, cy + ah + 1); ctx.lineTo(cx - ah, cy + 1);
+    ctx.moveTo(cx, cy + ah + 1); ctx.lineTo(cx + ah, cy + 1);
+  } else { // unknown / ? / !
+    ctx.moveTo(cx - ah, cy); ctx.lineTo(cx + ah, cy);
+    ctx.moveTo(cx, cy - ah); ctx.lineTo(cx, cy + ah);
+  }
+  ctx.stroke();
+}
+
+// ── Main preview render ────────────────────────────────────────────────────
+function drawPreview() {
+  var canvas = document.getElementById('previewCanvas');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var W = 200, H = 228;
+
+  // ── Read config ───────────────────────────────────────────
+  function cv(id, def) {
+    var el = document.getElementById(id);
+    return el ? el.value : def;
+  }
+  var colBg        = cv('colorBg',        '#EEEEEE');
+  var colFg        = cv('colorFg',        '#000055');
+  var colAccent    = cv('colorAccent',    '#FF0000');
+  var colGhost     = cv('colorGhost',     '#ADADAD');
+  var colLabelTop  = cv('colorLabelTop',  '#FFFFFF');
+  var colCgmOk     = cv('colorCgmOk',     '#38571A');
+  var colCgmHigh   = cv('colorCgmHigh',   '#FFAA00');
+  var colCgmLow    = cv('colorCgmLow',    '#FF0000');
+  var colCgmBanner = cv('colorCgmBanner', '#38571A');
+  var colCgmBoxBg  = cv('colorCgmBoxBg',  '#EEEEEE');
+  var colCgmInfo       = cv('colorCgmInfo',       '#000044');
+  var colTime2Bg       = cv('colorTime2Bg',       '#EEEEEE');
+  var backlightEnabled = parseInt(cv('backlightEnabled', '1'));
+  var colBacklight     = cv('colorBacklight',     '#FFFFFF');
+  var labelTL      = cv('labelTopLeft',   'QUARTZ');
+  var labelTR      = cv('labelTopRight',  'TIME 2');
+  var dateFormat   = parseInt(cv('dateFormat',   '0'));
+  var firstWeekday = parseInt(cv('firstWeekday', '0'));
+  var wdayLang     = parseInt(cv('wdayLang',     '0'));
+  var ghostEnabled = parseInt(cv('ghostEnabled', '1'));
+  var cgmBoxEnabled= parseInt(cv('cgmBoxEnabled','1'));
+  var complication = parseInt(cv('complication', '0'));
+
+  // ── Sample data ───────────────────────────────────────────
+  var now      = new Date();
+  var hh = now.getHours(), mm = now.getMinutes();
+  var timeStr  = pad2(hh) + ':' + pad2(mm);
+  var dd = now.getDate(), mo = now.getMonth() + 1;
+  var dateStr  = dateFormat === 0 ? pad2(dd) + '-' + pad2(mo) : pad2(mo) + '-' + pad2(dd);
+  var cgmVal   = '108';    // in-range CGM value
+  var cgmDelta = '+2';
+  var cgmTrend = '-';      // flat
+  var cgmAge   = 3;
+  var battPct  = 75;
+  var todayWday = now.getDay(); // 0=Sun
+
+  // Weekday arrays (same as C)
+  var D_SUN_EN = ['S','M','T','W','T','F','S'];
+  var D_MON_EN = ['M','T','W','T','F','S','S'];
+  var D_SUN_DE = ['S','M','D','M','D','F','S'];
+  var D_MON_DE = ['M','D','M','D','F','S','S'];
+  var daysArr;
+  if (wdayLang === 1)      daysArr = firstWeekday === 1 ? D_MON_DE : D_SUN_DE;
+  else                     daysArr = firstWeekday === 1 ? D_MON_EN : D_SUN_EN;
+  var todayIdx = todayWday;
+  if (firstWeekday === 1)  todayIdx = (todayIdx + 6) % 7;
+
+  // Complication string
+  var compStr, cgmSlot;
+  switch (complication) {
+    case 1:  compStr = '6218';   cgmSlot = false; break;
+    case 2:  compStr = '72';     cgmSlot = false; break;
+    case 3:  compStr = '21 C';   cgmSlot = false; break;
+    case 4:  compStr = '75%';    cgmSlot = false; break;
+    case 5:  compStr = dateStr;  cgmSlot = false; break;
+    default: compStr = cgmVal;   cgmSlot = true;  break;
+  }
+
+  // ── Y anchors (same as C) ─────────────────────────────────
+  var y_rs1    = SY(13);
+  var y_lcd    = SY(30);
+  var y_in     = SY(34);
+  var y_dr     = SY(36);
+  var y_time   = SY(61);
+  var y_info   = SY(112);
+  var y_in_end = SY(124);
+  var y_lcd_end= SY(126);
+  var y_cgs    = SY(130);
+  var y_rs2    = SY(148);
+  var y_ban    = SY(152);
+
+  var lrad = SX(8);
+  var irad = SX(6);
+  var lx = SX(1);
+  var lw = W - SX(2);
+  var ix = lx + SX(4);
+  var iw = lw - SX(8);
+  var x_l = ix + SX(3);
+  var x_r = ix + iw - SX(2);
+  var comp_w = SX(68);
+  var comp_x = x_r - comp_w - SX(4);
+  var date_w = comp_x - x_l - SX(2);
+  var dr_h = y_time - y_dr;
+
+  // ── 0. Backlight glow (behind everything, on watch-frame div) ────────────
+  // Show a coloured glow on the canvas border to simulate backlight tint
+  var watchFrame = document.querySelector('.watch-frame');
+  if (watchFrame) {
+    if (backlightEnabled) {
+      watchFrame.style.boxShadow = '0 0 18px 6px ' + colBacklight + '55, 0 4px 20px rgba(0,0,0,0.6)';
+      watchFrame.style.borderColor = colBacklight + '88';
+    } else {
+      watchFrame.style.boxShadow = '0 0 18px 6px #FFFFFF33, 0 4px 20px rgba(0,0,0,0.6)';
+      watchFrame.style.borderColor = '#555';
+    }
+  }
+
+  // ── 1. Black background ───────────────────────────────────
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, W, H);
+
+  // ── 2. Top banner labels ──────────────────────────────────
+  ctx.fillStyle = colLabelTop;
+  ctx.font = 'bold 9px "Segoe UI", system-ui, sans-serif';
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  ctx.fillText(labelTL, SX(4), Math.round(y_rs1 / 2));
+  ctx.textAlign = 'right';
+  ctx.fillText(labelTR, W - SX(4), Math.round(y_rs1 / 2));
+
+  // ── 3. Top red band ───────────────────────────────────────
+  ctx.fillStyle = colAccent;
+  ctx.fillRect(0, y_rs1, W, SY(4));
+
+  // ── 4. Button labels ──────────────────────────────────────
+  var bl_y = y_rs1 + SY(4);
+  var bl_h = y_lcd - bl_y;
+  var bl_cy = bl_y + Math.round(bl_h / 2);
+  ctx.font = '8px "Segoe UI", system-ui, sans-serif';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  ctx.fillText('◄ LIGHT', SX(4), bl_cy - 3);
+  ctx.fillStyle = '#FFFF00';
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 10px "Segoe UI", system-ui, sans-serif';
+  ctx.fillText('pebble', W / 2, bl_cy);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = '8px "Segoe UI", system-ui, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('UP ▶', W - SX(4), bl_y + Math.round(bl_h / 4));
+  ctx.fillText('SELECT ▶', W - SX(4), bl_y + Math.round(3 * bl_h / 4));
+
+  // ── 5. Outer LCD frame ────────────────────────────────────
+  var lh = y_lcd_end - y_lcd;
+  var bd = SX(4);
+  // Outer fill (fg color = border thickness illusion)
+  ctx.fillStyle = colFg;
+  roundRect(ctx, lx, y_lcd, lw, lh, lrad);
+  ctx.fill();
+  // Inner fill (bg color)
+  ctx.fillStyle = colBg;
+  roundRect(ctx, lx + bd, y_in, lw - 2 * bd, y_in_end - y_in, Math.max(0, lrad - bd));
+  ctx.fill();
+  // Outer stroke
+  ctx.strokeStyle = colFg;
+  ctx.lineWidth = 1;
+  roundRect(ctx, lx, y_lcd, lw, lh, lrad);
+  ctx.stroke();
+
+  // ── 5b. Time2 row tinted BG ───────────────────────────────
+  var t2_gap = 4;
+  ctx.fillStyle = colTime2Bg;
+  ctx.fillRect(ix + t2_gap, y_dr, iw - 2 * t2_gap, y_time - y_dr);
+
+  // ── 6. Double border ─────────────────────────────────────
+  var gap = 3;
+  ctx.strokeStyle = colFg;
+  ctx.lineWidth = 1;
+  roundRect(ctx, ix, y_in, iw, y_in_end - y_in, irad);
+  ctx.stroke();
+  roundRect(ctx, ix + gap, y_in + gap, iw - 2 * gap, (y_in_end - y_in) - 2 * gap, Math.max(0, irad - gap));
+  ctx.stroke();
+  // Separator line
+  ctx.beginPath();
+  ctx.moveTo(ix + gap + 1, y_info);
+  ctx.lineTo(ix + iw - gap - 1, y_info);
+  ctx.stroke();
+
+  // ── 7. Date ───────────────────────────────────────────────
+  var glyph_h  = 15;
+  var render_h = 20;
+  var row_ty   = y_dr + Math.round((dr_h - glyph_h) / 2) - 3;
+  if (row_ty < y_dr) row_ty = y_dr;
+  if (row_ty + render_h > y_dr + dr_h) row_ty = y_dr + dr_h - render_h;
+
+  if (ghostEnabled) {
+    ctx.fillStyle = colGhost;
+    ctx.font = '20px "DSEG14", "Courier New", monospace';
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'center';
+    ctx.fillText('88-88', Math.round(x_l + date_w / 2), row_ty);
+  }
+  ctx.fillStyle = colFg;
+  ctx.font = '20px "DSEG14", "Courier New", monospace';
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'center';
+  ctx.fillText(dateStr, Math.round(x_l + date_w / 2), row_ty);
+
+  // ── 8. Comp box ───────────────────────────────────────────
+  var render_h_comp = 22;
+  ctx.strokeStyle = colFg;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(comp_x, y_dr, comp_w, dr_h);
+
+  if (cgmSlot) {
+    var arw_w = SX(12);
+    var num_w = comp_w - arw_w - SX(2);
+    if (ghostEnabled) {
+      ctx.fillStyle = colGhost;
+      ctx.font = '22px "DSEG14", "Courier New", monospace';
+      ctx.textBaseline = 'top';
+      ctx.textAlign = 'right';
+      ctx.fillText('8888', comp_x + SX(1) + num_w, row_ty);
+    }
+    ctx.fillStyle = colCgmOk;
+    ctx.font = 'bold 22px "DSEG14", "Courier New", monospace';
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'right';
+    ctx.fillText(compStr, comp_x + SX(1) + num_w, row_ty);
+    // Trend arrow in comp box
+    drawTrendArrow(ctx, cgmTrend, comp_x + SX(1) + num_w, row_ty, arw_w, render_h_comp, colCgmOk);
+  } else {
+    var all_x = comp_x + SX(1);
+    var all_w = comp_w - SX(2);
+    if (ghostEnabled) {
+      ctx.fillStyle = colGhost;
+      ctx.font = '22px "DSEG14", "Courier New", monospace';
+      ctx.textBaseline = 'top';
+      ctx.textAlign = 'right';
+      ctx.fillText('88888', all_x + all_w, row_ty);
+    }
+    ctx.fillStyle = colFg;
+    ctx.font = 'bold 22px "DSEG14", "Courier New", monospace';
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'right';
+    ctx.fillText(compStr, all_x + all_w, row_ty);
+  }
+
+  // ── 9. Time HH:MM ─────────────────────────────────────────
+  var tdy = y_time + Math.round((y_in_end - y_time - SY(42)) / 2);
+  if (tdy < y_time) tdy = y_time;
+  if (ghostEnabled) {
+    ctx.fillStyle = colGhost;
+    ctx.font = 'bold 52px "DSEG14", "Courier New", monospace';
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'left';
+    ctx.fillText('88:88', ix + SX(1), tdy);
+  }
+  ctx.fillStyle = colFg;
+  ctx.font = 'bold 52px "DSEG14", "Courier New", monospace';
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'left';
+  ctx.fillText(timeStr, ix + SX(1), tdy);
+
+  // ── 10. Battery bar ───────────────────────────────────────
+  var info_top = y_info + SY(1);
+  var info_h   = y_in_end - y_info - SY(2);
+  if (info_h < 4) info_h = 4;
+  var mid_x   = ix + Math.round(iw / 2);
+  var bat_bx  = x_l;
+  var bat_bw  = mid_x - x_l - SX(3);
+  var bat_h   = Math.round((info_h * 3) / 5);
+  if (bat_h < 3) bat_h = 3;
+  var bat_top = info_top + Math.round((info_h - bat_h) / 2);
+  var n_seg   = 6;
+  var seg_gap = 2;
+  var seg_w   = bat_bw > (n_seg + 1) * seg_gap
+                ? Math.floor((bat_bw - (n_seg + 1) * seg_gap) / n_seg) : 2;
+  if (seg_w < 2) seg_w = 2;
+  if (seg_w > SX(8)) seg_w = SX(8);
+  var lit = Math.round((battPct * n_seg + 50) / 100);
+  if (lit > n_seg) lit = n_seg;
+  ctx.strokeStyle = colFg;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(bat_bx, bat_top, bat_bw, bat_h);
+  for (var s = 0; s < n_seg; s++) {
+    var sx = bat_bx + seg_gap + s * (seg_w + seg_gap);
+    ctx.fillStyle = s < lit ? colFg : colGhost;
+    ctx.fillRect(sx, bat_top + 1, seg_w, bat_h - 2);
+  }
+
+  // ── 11. Day-of-week strip ─────────────────────────────────
+  var wday_x    = mid_x + SX(2);
+  var wday_w    = x_r - wday_x;
+  var day_step  = Math.round(wday_w / 7);
+  var wday_y    = info_top - 3;
+  ctx.font = 'bold 9px "Segoe UI", system-ui, sans-serif';
+  for (var i = 0; i < 7; i++) {
+    var dw = SX(10);
+    var dx = wday_x + i * day_step + Math.round((day_step - dw) / 2);
+    if (i === todayIdx) {
+      var r2 = 2;
+      ctx.fillStyle = colFg;
+      roundRect(ctx, dx - 1, wday_y + 2, dw + 2, info_h, r2);
+      ctx.fill();
+      ctx.fillStyle = colBg;
+    } else {
+      ctx.fillStyle = colGhost;
+    }
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText(daysArr[i], dx + Math.round(dw / 2), wday_y + Math.round(info_h / 2) + 1);
+  }
+
+  // ── 12. CGM status section ────────────────────────────────
+  var cgs_h  = y_rs2 - y_cgs;
+  var cgs_cy = y_cgs + Math.round(cgs_h / 2);
+  var nsUrl  = cv('nsUrl', '');
+  var cgs_txt = nsUrl.length < 4 ? 'No URL' : 'CGM Active';
+  var cgs_col = nsUrl.length < 4 ? colCgmLow : colCgmBanner;
+
+  // Measure text width for dynamic box
+  ctx.font = 'bold 11px "Segoe UI", system-ui, sans-serif';
+  var box_pad = SX(5);
+  var txt_w   = ctx.measureText(cgs_txt).width;
+  var box_w   = Math.round(txt_w + 2 * box_pad);
+  var box_x   = SX(2);
+  var box_y   = y_cgs + 1;
+  var box_h   = cgs_h - 2;
+
+  if (cgmBoxEnabled) {
+    ctx.fillStyle = colCgmBoxBg;
+    roundRect(ctx, box_x, box_y, box_w, box_h, irad);
+    ctx.fill();
+    ctx.strokeStyle = cgs_col;
+    ctx.lineWidth = 1;
+    roundRect(ctx, box_x, box_y, box_w, box_h, irad);
+    ctx.stroke();
+  }
+  ctx.fillStyle = cgs_col;
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 11px "Segoe UI", system-ui, sans-serif';
+  ctx.fillText(cgs_txt, box_x + Math.round(box_w / 2), cgs_cy);
+
+  // Trend arrow + delta/age (only when CGM active)
+  if (nsUrl.length >= 4) {
+    var arrow_x = box_x + box_w + SX(3);
+    drawTrendArrow(ctx, cgmTrend, arrow_x, y_cgs + 1, SX(11), cgs_h - 2, colCgmInfo);
+    ctx.fillStyle = colCgmInfo;
+    ctx.font = '9px "Segoe UI", system-ui, sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillText(cgmDelta + ' ' + cgmAge + 'm', arrow_x + SX(12), cgs_cy);
+  }
+
+  // DOWN label
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = '8px "Segoe UI", system-ui, sans-serif';
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'right';
+  ctx.fillText('DOWN ▶', W - SX(4), cgs_cy);
+
+  // ── 13. Bottom red band ───────────────────────────────────
+  ctx.fillStyle = colAccent;
+  ctx.fillRect(0, y_rs2, W, y_ban - y_rs2);
+
+  // ── 14. E-PAPER DISPLAY ───────────────────────────────────
+  var ban_h = H - y_ban;
+  ctx.fillStyle = '#FFFF00';
+  ctx.font = 'bold 9px "Segoe UI", system-ui, sans-serif';
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+  ctx.fillText('E-PAPER DISPLAY', W / 2, y_ban + Math.round(ban_h / 2));
+}
+
+// ── Load config from Pebble URL param ─────────────────────────────────────
 function loadConfig() {
   var raw = new URLSearchParams(window.location.search).get('config');
   if (!raw) return;
   try {
     var cfg = JSON.parse(decodeURIComponent(raw));
-
     function setVal(id, v) {
       var el = document.getElementById(id);
       if (el && v !== undefined && v !== null) el.value = v;
     }
-
     setVal('nsUrl',         cfg.nsUrl);
     setVal('nsToken',       cfg.nsToken);
     setVal('nsUnits',       cfg.nsUnits);
     setVal('nsHigh',        cfg.nsHigh);
     setVal('nsLow',         cfg.nsLow);
     setVal('nsStaleMin',    cfg.nsStaleMin);
-    // CGM sync settings
     if (cfg.syncBgWithInterval !== undefined)
       setVal('syncBgWithInterval', cfg.syncBgWithInterval ? '1' : '0');
     if (cfg.bgFetchIntervalMin)  setVal('bgFetchIntervalMin',  cfg.bgFetchIntervalMin);
@@ -606,34 +1102,30 @@ function loadConfig() {
     setVal('dateFormat',    cfg.dateFormat);
     setVal('firstWeekday',  cfg.firstWeekday);
     setVal('shake2nd',      cfg.shake2nd);
-    setVal('ghostEnabled',  cfg.ghostEnabled !== undefined ? String(cfg.ghostEnabled) : '1');
-    setVal('cgmBoxEnabled', cfg.cgmBoxEnabled !== undefined ? String(cfg.cgmBoxEnabled) : '1');
+    setVal('ghostEnabled',     cfg.ghostEnabled     !== undefined ? String(cfg.ghostEnabled)     : '1');
+    setVal('cgmBoxEnabled',    cfg.cgmBoxEnabled    !== undefined ? String(cfg.cgmBoxEnabled)    : '1');
+    setVal('backlightEnabled', cfg.backlightEnabled !== undefined ? String(cfg.backlightEnabled) : '1');
     setVal('wdayLang',      cfg.wdayLang);
     setVal('showSeconds',   cfg.showSeconds);
 
-    // Colors stored as #RRGGBB strings
-    var colorFields = ['colorBg', 'colorFg', 'colorAccent', 'colorCgmOk', 'colorCgmBanner', 'colorCgmHigh', 'colorCgmLow', 'colorGhost', 'colorLabelTop', 'colorTime2Bg', 'colorCgmBoxBg'];
+    var colorFields = ['colorBg','colorFg','colorAccent','colorCgmOk','colorCgmBanner',
+                       'colorCgmHigh','colorCgmLow','colorGhost','colorLabelTop',
+                       'colorTime2Bg','colorCgmBoxBg','colorCgmInfo','colorBacklight'];
     colorFields.forEach(function(f) {
       var v = cfg[f];
       if (v === undefined || v === null) return;
-      // Support both stored hex strings and legacy integer values
-      var hex;
-      if (typeof v === 'number') {
-        hex = '#' + v.toString(16).padStart(6, '0').toUpperCase();
-      } else {
-        hex = String(v).charAt(0) === '#' ? String(v).toUpperCase() : '#' + String(v).toUpperCase();
-      }
+      var hex = (typeof v === 'number')
+        ? '#' + v.toString(16).padStart(6, '0').toUpperCase()
+        : (String(v).charAt(0) === '#' ? String(v).toUpperCase() : '#' + String(v).toUpperCase());
       setVal(f, hex);
       setVal(f + 'Picker', hex);
     });
   } catch (e) {
-    console.error('CasioCGM: config parse error', e);
+    console.error('CasioCGM config parse error', e);
   }
 }
 
-// ── Save – send config back to Pebble ────────────────────────────────────
-// Colors are stored as hex strings (#RRGGBB).
-// index.js sendConfig() converts them to integers when sending AppMessage.
+// ── Save ───────────────────────────────────────────────────────────────────
 function save() {
   var cfg = {
     nsUrl:         document.getElementById('nsUrl').value.trim(),
@@ -656,7 +1148,6 @@ function save() {
     cgmBoxEnabled: parseInt(document.getElementById('cgmBoxEnabled').value),
     wdayLang:      document.getElementById('wdayLang').value,
     showSeconds:   document.getElementById('showSeconds').value,
-    // Colors as hex strings – index.js converts to int for AppMessage
     colorBg:         document.getElementById('colorBg').value,
     colorFg:         document.getElementById('colorFg').value,
     colorAccent:     document.getElementById('colorAccent').value,
@@ -667,19 +1158,34 @@ function save() {
     colorGhost:      document.getElementById('colorGhost').value,
     colorLabelTop:   document.getElementById('colorLabelTop').value,
     colorTime2Bg:    document.getElementById('colorTime2Bg').value,
-    colorCgmBoxBg:   document.getElementById('colorCgmBoxBg').value
+    colorCgmBoxBg:      document.getElementById('colorCgmBoxBg').value,
+    colorCgmInfo:       document.getElementById('colorCgmInfo').value,
+    backlightEnabled:   parseInt(document.getElementById('backlightEnabled').value),
+    colorBacklight:     document.getElementById('colorBacklight').value
   };
-
-  var encoded = encodeURIComponent(JSON.stringify(cfg));
-  document.location = 'pebblejs://close#' + encoded;
+  document.location = 'pebblejs://close#' + encodeURIComponent(JSON.stringify(cfg));
 }
 
-function cancel() {
-  document.location = 'pebblejs://close#CANCELLED';
+function cancel() { document.location = 'pebblejs://close#CANCELLED'; }
+
+// ── Wire up live preview on every input change ─────────────────────────────
+function bindPreviewUpdates() {
+  var inputs = document.querySelectorAll('input, select');
+  inputs.forEach(function(el) {
+    el.addEventListener('change',  schedulePreview);
+    el.addEventListener('input',   schedulePreview);
+    el.addEventListener('keyup',   schedulePreview);
+  });
 }
 
-// ── Init ──────────────────────────────────────────────────────────────────
+// ── Init ───────────────────────────────────────────────────────────────────
 loadConfig();
+bindPreviewUpdates();
+
+// Wait for fonts, then draw
+document.fonts.ready.then(function() { drawPreview(); });
+// Fallback draw immediately too
+drawPreview();
 </script>
 </body>
 </html>

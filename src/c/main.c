@@ -27,6 +27,9 @@
 #define KEY_GHOST_ENABLED      23   // 1=show ghost segments (default), 0=hide
 #define KEY_COLOR_CGM_BANNER   24   // color for CGM Active/Offline status text
 #define KEY_COLOR_TIME2_BG     25   // background tint for date+comp row (0=same as LCD bg)
+#define KEY_COLOR_CGM_INFO     26   // color for CGM trend arrow + delta/age info
+#define KEY_BACKLIGHT_ENABLED  27   // 1=enable custom backlight color on shake (default), 0=use system default
+#define KEY_COLOR_BACKLIGHT    28   // custom backlight tint color (rgb888)
 #define KEY_CGM_BOX_ENABLED    35   // 1=show border box around CGM status (default), 0=hide
 #define KEY_COLOR_CGM_BOX_BG   36   // fill color for CGM status box
 #define KEY_CGM_VALUE          50
@@ -54,7 +57,7 @@ static int  s_ns_stale_min    = 10;
 
 static int  s_color_bg        = 0xEEEEEE;
 static int  s_color_fg        = 0x000044;
-static int  s_color_accent    = 0xFFAA00;
+static int  s_color_accent    = 0xFF0000;
 static int  s_color_cgm_ok    = 0x38571A;
 static int  s_color_cgm_high  = 0xAA5500;
 static int  s_color_cgm_low   = 0xAA0000;
@@ -72,6 +75,9 @@ static int  s_color_label_top  = 0xFFFFFF;  // top banner label color
 static int  s_ghost_enabled    = 1;         // 1=show ghost segments, 0=hide
 static int  s_color_cgm_banner = 0x38571A;  // CGM Active/Offline status text color
 static int  s_color_time2_bg   = 0xEEEEEE; // date+comp row background tint (matches LCD bg default)
+static int  s_color_cgm_info   = 0x000044; // color for CGM trend arrow + delta/age info
+static int  s_backlight_enabled= 1;         // 1=use custom backlight color on shake, 0=system default
+static int  s_color_backlight  = 0xFFFFFF; // backlight tint (rgb888, default = white)
 static int  s_cgm_box_enabled  = 1;         // 1=show border box around CGM status, 0=hide
 static int  s_color_cgm_box_bg = 0xEEEEEE; // CGM status box fill color (default = LCD bg)
 
@@ -270,7 +276,7 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   GColor col_bg    = color_from_int(s_color_bg);
   GColor col_fg    = color_from_int(s_color_fg);
   GColor col_ghost = color_from_int(s_color_ghost);
-  GColor col_red   = GColorRed;
+  GColor col_red   = color_from_int(s_color_accent);
 
   int cgm_int = atoi(s_cgm_value);
   bool cgm_fresh = (strlen(s_ns_url) > 0)
@@ -610,16 +616,17 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
 
     if (cgm_fresh) {
       // Trend arrow directly after the box
+      GColor col_info = color_from_int(s_color_cgm_info);
       int arrow_x = SX(2) + box_w + SX(3);
       draw_trend_arrow(ctx, s_cgm_trend[0],
-                       GRect(arrow_x, y_cgs+1, SX(11), cgs_h-2), col_cgm);
+                       GRect(arrow_x, y_cgs+1, SX(11), cgs_h-2), col_info);
       // #8: delta + age info next to trend arrow
       char info_str[32];
       if (s_cgm_age < 60)
         snprintf(info_str, sizeof(info_str), "%s %dm", s_cgm_delta, s_cgm_age);
       else
         snprintf(info_str, sizeof(info_str), "%s %dh", s_cgm_delta, s_cgm_age/60);
-      graphics_context_set_text_color(ctx, col_cgm);
+      graphics_context_set_text_color(ctx, col_info);
       graphics_draw_text(ctx, info_str, f_lbl,
                          GRect(arrow_x + SX(12), y_cgs+(cgs_h-9)/2, SX(21), 9),
                          GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
@@ -655,6 +662,13 @@ static void accel_tap_handler(AccelAxisType axis, int32_t direction) {
   s_shake_active = true;
   if (s_shake_timer) app_timer_cancel(s_shake_timer);
   s_shake_timer = app_timer_register(5000, shake_timer_cb, NULL);
+  // Backlight: set custom color (emery supports colored backlight)
+  if (s_backlight_enabled) {
+    light_set_color_rgb888((uint32_t)s_color_backlight);
+  } else {
+    light_set_system_color();
+  }
+  light_enable_interaction();
   if (s_canvas) layer_mark_dirty(s_canvas);
 }
 
@@ -698,6 +712,9 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   GI(KEY_GHOST_ENABLED,s_ghost_enabled);
   GI(KEY_COLOR_CGM_BANNER,s_color_cgm_banner);
   GI(KEY_COLOR_TIME2_BG,s_color_time2_bg);
+  GI(KEY_COLOR_CGM_INFO,s_color_cgm_info);
+  GI(KEY_BACKLIGHT_ENABLED,s_backlight_enabled);
+  GI(KEY_COLOR_BACKLIGHT,s_color_backlight);
   GI(KEY_CGM_BOX_ENABLED,s_cgm_box_enabled);
   GI(KEY_COLOR_CGM_BOX_BG,s_color_cgm_box_bg);
   GS(KEY_CGM_VALUE,s_cgm_value); GS(KEY_CGM_DELTA,s_cgm_delta);
@@ -732,6 +749,9 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   persist_write_int(KEY_GHOST_ENABLED,s_ghost_enabled);
   persist_write_int(KEY_COLOR_CGM_BANNER,s_color_cgm_banner);
   persist_write_int(KEY_COLOR_TIME2_BG,s_color_time2_bg);
+  persist_write_int(KEY_COLOR_CGM_INFO,s_color_cgm_info);
+  persist_write_int(KEY_BACKLIGHT_ENABLED,s_backlight_enabled);
+  persist_write_int(KEY_COLOR_BACKLIGHT,s_color_backlight);
   persist_write_int(KEY_CGM_BOX_ENABLED,s_cgm_box_enabled);
   persist_write_int(KEY_COLOR_CGM_BOX_BG,s_color_cgm_box_bg);
   if (s_canvas) layer_mark_dirty(s_canvas);
@@ -757,6 +777,9 @@ static void load_persist(void) {
   LI(KEY_GHOST_ENABLED,s_ghost_enabled);
   LI(KEY_COLOR_CGM_BANNER,s_color_cgm_banner);
   LI(KEY_COLOR_TIME2_BG,s_color_time2_bg);
+  LI(KEY_COLOR_CGM_INFO,s_color_cgm_info);
+  LI(KEY_BACKLIGHT_ENABLED,s_backlight_enabled);
+  LI(KEY_COLOR_BACKLIGHT,s_color_backlight);
   LI(KEY_CGM_BOX_ENABLED,s_cgm_box_enabled);
   LI(KEY_COLOR_CGM_BOX_BG,s_color_cgm_box_bg);
 #undef LS
