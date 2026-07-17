@@ -258,11 +258,13 @@
       <div class="row2">
         <div class="field">
           <label data-en="High threshold" data-de="Hoch-Schwellwert">High threshold</label>
-          <input type="number" id="nsHigh" value="180" min="100" max="400">
+          <input type="number" id="nsHigh" value="180" min="1" max="400" step="any">
+          <p class="hint" data-en="In the selected unit (e.g. 180 or 10.0)." data-de="In der gewählten Einheit (z.B. 180 oder 10,0).">In the selected unit.</p>
         </div>
         <div class="field">
           <label data-en="Low threshold" data-de="Tief-Schwellwert">Low threshold</label>
-          <input type="number" id="nsLow" value="70" min="40" max="100">
+          <input type="number" id="nsLow" value="70" min="1" max="400" step="any">
+          <p class="hint" data-en="In the selected unit (e.g. 70 or 3.9)." data-de="In der gewählten Einheit (z.B. 70 oder 3,9).">In the selected unit.</p>
         </div>
       </div>
       <div class="field">
@@ -319,12 +321,20 @@
         </select>
       </div>
       <div class="field">
-        <label data-en="Ghost segments in complication box" data-de="Geister-Segmente im Komplikationsfeld">Ghost segments</label>
-        <select id="ghostEnabled">
+        <label data-en="Ghost segments" data-de="Geister-Segmente">Ghost segments</label>
+        <select id="ghostEnabled" onchange="schedulePreview()">
           <option value="1" data-en="On – show unlit LCD segments (default)" data-de="An – unbeleuchtete LCD-Segmente (Standard)">On (default)</option>
           <option value="0" data-en="Off – show value only"                   data-de="Aus – nur Wert anzeigen">Off</option>
         </select>
-        <p class="hint" data-en="Faint background segments for a retro LCD look." data-de="Blasse Hintergrundsegmente für einen Retro-LCD-Look.">Retro LCD look behind the value.</p>
+        <p class="hint" data-en="Faint background segments for a retro LCD look (whole face)." data-de="Blasse Hintergrundsegmente für einen Retro-LCD-Look (gesamtes Zifferblatt).">Retro LCD look behind the value.</p>
+      </div>
+      <div class="field">
+        <label data-en="Ghost 8s in complication box" data-de="Geister-8en im Komplikationsfeld">Ghost 8s in complication box</label>
+        <select id="ghostCompEnabled" onchange="schedulePreview()">
+          <option value="1" data-en="On (default)" data-de="An (Standard)">On (default)</option>
+          <option value="0" data-en="Off – hide ghost 8s in the box" data-de="Aus – keine Geister-8en im Feld">Off</option>
+        </select>
+        <p class="hint" data-en="Disables only the ghost 8s inside the complication box; other ghost segments stay." data-de="Blendet nur die Geister-8en im Komplikationsfeld aus; andere Geister-Segmente bleiben.">Only affects the complication box.</p>
       </div>
       <div class="field">
         <label data-en="CGM status box" data-de="CGM-Status-Rahmen">CGM status box</label>
@@ -396,10 +406,10 @@
         <div class="field">
           <label data-en="Seconds display" data-de="Sekundenanzeige">Seconds</label>
           <select id="showSeconds">
-            <option value="0" data-en="Show" data-de="Anzeigen">Show</option>
-            <option value="1" data-en="Hide" data-de="Ausblenden">Hide</option>
+            <option value="0" data-en="Hide (default)" data-de="Ausblenden (Standard)">Hide</option>
+            <option value="1" data-en="Show" data-de="Anzeigen">Show</option>
           </select>
-          <p class="hint" data-en="Non-emery platforms only." data-de="Nur auf Nicht-Emery-Plattformen.">Non-emery only.</p>
+          <p class="hint" data-en="Small seconds digits next to the time. Uses more battery (redraw every second)." data-de="Kleine Sekundenziffern neben der Uhrzeit. Braucht mehr Akku (Neuzeichnen pro Sekunde).">Small seconds next to the time.</p>
         </div>
       </div>
     </div>
@@ -536,8 +546,8 @@
         <div class="field">
           <label data-en="CGM trend arrow &amp; delta" data-de="CGM Pfeil &amp; Delta">CGM trend &amp; delta</label>
           <div class="color-row">
-            <input type="color" id="colorCgmInfoPicker" value="#000044" oninput="syncColor('colorCgmInfo','colorCgmInfoPicker')">
-            <input type="text"  id="colorCgmInfo"        value="#000044" maxlength="7" oninput="syncColor('colorCgmInfoPicker','colorCgmInfo',true)">
+            <input type="color" id="colorCgmInfoPicker" value="#FFFFFF" oninput="syncColor('colorCgmInfo','colorCgmInfoPicker')">
+            <input type="text"  id="colorCgmInfo"        value="#FFFFFF" maxlength="7" oninput="syncColor('colorCgmInfoPicker','colorCgmInfo',true)">
           </div>
           <p class="hint" data-en="Colour of the trend arrow and &quot;+2 3m&quot; delta/age text next to the CGM status box." data-de="Farbe des Trendpfeils und des &quot;+2 3m&quot;-Texts neben der CGM-Status-Box.">Trend arrow and delta/age text next to CGM box.</p>
         </div>
@@ -728,7 +738,7 @@ function drawPreview() {
   var colCgmLow    = cv('colorCgmLow',    '#FF0000');
   var colCgmBanner = cv('colorCgmBanner', '#38571A');
   var colCgmBoxBg  = cv('colorCgmBoxBg',  '#EEEEEE');
-  var colCgmInfo       = cv('colorCgmInfo',       '#000044');
+  var colCgmInfo       = cv('colorCgmInfo',       '#FFFFFF');
   var colTime2Bg       = cv('colorTime2Bg',       '#EEEEEE');
   var backlightEnabled = parseInt(cv('backlightEnabled', '1'));
   var colBacklight     = cv('colorBacklight',     '#FFFFFF');
@@ -738,6 +748,7 @@ function drawPreview() {
   var firstWeekday = parseInt(cv('firstWeekday', '0'));
   var wdayLang     = parseInt(cv('wdayLang',     '0'));
   var ghostEnabled = parseInt(cv('ghostEnabled', '1'));
+  var ghostComp    = ghostEnabled && parseInt(cv('ghostCompEnabled', '1'));
   var cgmBoxEnabled= parseInt(cv('cgmBoxEnabled','1'));
   var complication = parseInt(cv('complication', '0'));
 
@@ -916,7 +927,7 @@ function drawPreview() {
   if (cgmSlot) {
     var arw_w = SX(12);
     var num_w = comp_w - arw_w - SX(2);
-    if (ghostEnabled) {
+    if (ghostComp) {
       ctx.fillStyle = colGhost;
       ctx.font = '22px "DSEG14", "Courier New", monospace';
       ctx.textBaseline = 'top';
@@ -933,7 +944,7 @@ function drawPreview() {
   } else {
     var all_x = comp_x + SX(1);
     var all_w = comp_w - SX(2);
-    if (ghostEnabled) {
+    if (ghostComp) {
       ctx.fillStyle = colGhost;
       ctx.font = '22px "DSEG14", "Courier New", monospace';
       ctx.textBaseline = 'top';
@@ -1103,6 +1114,7 @@ function loadConfig() {
     setVal('firstWeekday',  cfg.firstWeekday);
     setVal('shake2nd',      cfg.shake2nd);
     setVal('ghostEnabled',     cfg.ghostEnabled     !== undefined ? String(cfg.ghostEnabled)     : '1');
+    setVal('ghostCompEnabled', cfg.ghostCompEnabled !== undefined ? String(cfg.ghostCompEnabled) : '1');
     setVal('cgmBoxEnabled',    cfg.cgmBoxEnabled    !== undefined ? String(cfg.cgmBoxEnabled)    : '1');
     setVal('backlightEnabled', cfg.backlightEnabled !== undefined ? String(cfg.backlightEnabled) : '1');
     setVal('wdayLang',      cfg.wdayLang);
@@ -1145,6 +1157,7 @@ function save() {
     firstWeekday:  document.getElementById('firstWeekday').value,
     shake2nd:      document.getElementById('shake2nd').value,
     ghostEnabled:  parseInt(document.getElementById('ghostEnabled').value),
+    ghostCompEnabled: parseInt(document.getElementById('ghostCompEnabled').value),
     cgmBoxEnabled: parseInt(document.getElementById('cgmBoxEnabled').value),
     wdayLang:      document.getElementById('wdayLang').value,
     showSeconds:   document.getElementById('showSeconds').value,

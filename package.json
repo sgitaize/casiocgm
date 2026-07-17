@@ -33,6 +33,13 @@
         },
         {
           "type": "font",
+          "name": "FONT_DSEG_TIME44",
+          "file": "fonts/DSEG14Classic-Bold.ttf",
+          "characterRegex": "[0-9:]",
+          "size": 44
+        },
+        {
+          "type": "font",
           "name": "FONT_DSEG_DATE20",
           "file": "fonts/DSEG14Classic-Bold.ttf",
           "characterRegex": "[0-9. -]"
@@ -41,7 +48,7 @@
           "type": "font",
           "name": "FONT_DSEG_COMP22",
           "file": "fonts/DSEG14Classic-Bold.ttf",
-          "characterRegex": "[0-9. +-]",
+          "characterRegex": "[0-9. +NOCBGLD-]",
           "size": 22
         },
         {
@@ -93,7 +100,12 @@
       "WEATHER_ICON",
       "BATT_PCT",
       "CGM_BOX_ENABLED",
-      "COLOR_CGM_BOX_BG"
+      "COLOR_CGM_BOX_BG",
+      "GHOST_COMP_ENABLED",
+      "CGM_STATUS",
+      "CGM_TS",
+      "CGM_SGV",
+      "REQUEST_BG"
     ]
   }
 }

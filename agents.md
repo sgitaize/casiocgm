@@ -71,38 +71,50 @@ Must be identical in both files.
 | KEY_LABEL_BOTTOM    | 15  | config→watch  | string | Bottom banner text             |
 | KEY_FIRST_WEEKDAY   | 16  | config→watch  | int    | 0=Sun, 1=Mon                  |
 | KEY_DATE_FORMAT     | 17  | config→watch  | int    | 0=DD-MM, 1=MM-DD              |
-| KEY_CGM_VALUE       | 50  | JS→watch      | string | Glucose value as string        |
+| KEY_SHOW_SECONDS    | 20  | config→watch  | int    | 1=small seconds next to HH:MM (default 0) |
+| KEY_CGM_VALUE       | 50  | JS→watch      | string | Glucose display string (mg/dL int or mmol "5.6") |
 | KEY_CGM_DELTA       | 51  | JS→watch      | string | Delta string e.g. "+3"        |
-| KEY_CGM_TREND       | 52  | JS→watch      | string | UTF-8 arrow (↑ ↗ → ↘ ↓)      |
-| KEY_CGM_AGE         | 53  | JS→watch      | int    | Minutes since last reading     |
+| KEY_CGM_TREND       | 52  | JS→watch      | string | 1-char trend code (U u r - f d D), drawn graphically in C |
+| KEY_CGM_AGE         | 53  | JS→watch      | int    | Minutes since reading (legacy; watch prefers CGM_TS) |
 | KEY_STEPS           | 54  | JS→watch      | int    | Step count today               |
 | KEY_HR              | 55  | JS→watch      | int    | Heart rate BPM                 |
 | KEY_WEATHER_TEMP    | 56  | JS→watch      | int    | Temperature (C or F)           |
 | KEY_WEATHER_ICON    | 57  | JS→watch      | string | UTF-8 weather icon             |
 | KEY_BATT_PCT        | 58  | JS→watch      | int    | Battery percent                |
+| KEY_CGM_STATUS      | 59  | JS→watch      | int    | 0=OK, 1=NO_DATA, 2=NO_CONN, 3=OLD (supercgm semantics) |
+| KEY_CGM_TS          | 60  | JS→watch      | int    | Unix ts (sec) of reading — watch ages it locally |
+| KEY_CGM_SGV         | 61  | JS→watch      | int    | Raw sgv in mg/dL for range/threshold comparison |
+| KEY_REQUEST_BG      | 62  | watch→JS      | int    | Request immediate BG fetch (sent on BT reconnect) |
+
+Note: `NS_HIGH` / `NS_LOW` are entered in the display unit on the config page
+but **always sent to the watch in mg/dL** — the watch compares them against
+`CGM_SGV` (raw mg/dL), never against the display string.
+
+(Config keys 18–37: shake slot, weekday language, ghost/backlight/banner
+colors, ghost-8s-in-comp-box toggle (37, issue #4) etc. — see the `#define`
+block at the top of `main.c`.)
 
 ---
 
-## Watch Layout (144×168px, Basalt/Aplite)
+## Watch Layout (ref 144×168, scaled to Emery 200×228)
 
 ```
 ┌──────────────────────────────────────┐
-│▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ (red stripe)   │
-│ QUARTZ              TIME 2           │  ← s_label_tl / s_label_tr
-│ ◄LIGHT   pebble    UP►              │
-│                     ENTER►           │
-│ ┌────────┐ ┌──────────────┐         │
-│ │ 22-06  │ │   CGM/COMP   │  ←trend │  ← date + complication + trend arrow
-│ └────────┘ └──────────────┘    ↑    │
-│                                      │
-│      08:08          42sec  ↗         │  ← large time + seconds + trend arrow
-│                           +2         │  ← delta
-│                                      │
-│ BAT ████████░░  ● ● ● ● ● ● ●       │  ← battery bar + dots
-│      S  M  T  W  T  F  S            │  ← weekday strip
-│▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ (red stripe)   │
-│ CGM Active              DOWN►        │  ← CGM status / label
-│ ▓▓▓▓  CGM Enabled  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │  ← bottom banner bar
+│ QUARTZ              TIME 2           │  ← s_label_tl / s_label_tr ("2" blue)
+│╔════════════════════════════════════╗│  ← RED RING (continuous rounded frame)
+│║ ◄LIGHT   pebble           UP►     ║│
+│║                           ENTER►  ║│
+│║ ┌───────────────────────────────┐ ║│
+│║ │ 22-06   ╭───────────╮        │ ║│
+│║ │  P      │ CGM/COMP ↗│        │ ║│  ← date + rounded comp box + trend
+│║ │         ╰───────────╯        │ ║│
+│║ │  08:08                  [42] │ ║│  ← time + optional small seconds
+│║ │ BAT ████░░    ▪ ▪ ▪ █ ▪ ▪ ▪ │ ║│  ← BAT label+bar | day marker squares
+│║ │      S  M  T  W  T  F  S     │ ║│  ← weekday letters in the dark
+│║ └───────────────────────────────┘ ║│    bottom band of the LCD frame
+│║ [CGM Active] ↗ +2 3m      DOWN►   ║│  ← CGM status box + trend/delta/age
+│╚════════════════════════════════════╝│
+│          E-PAPER DISPLAY             │  ← yellow banner
 └──────────────────────────────────────┘
 ```
 
@@ -114,7 +126,7 @@ The 5-digit area (top-right) shows one of:
 
 | Index | Name         | Source              | Notes                         |
 |-------|--------------|---------------------|-------------------------------|
-| 0     | CGM          | Nightscout API      | Shows "----" when stale       |
+| 0     | CGM          | Nightscout API      | Shows NOCON/NO-BG/OLDBG status text; "----" without URL |
 | 1     | Steps        | HealthService       | Day total                     |
 | 2     | Heart Rate   | HealthService peek  | BPM                           |
 | 3     | Weather      | Open-Meteo API      | Temp + icon                   |
@@ -125,14 +137,29 @@ The 5-digit area (top-right) shows one of:
 
 ---
 
-## CGM Status Logic
+## CGM Status Logic (supercgm semantics)
 
-In `cgm_status_label()`:
-- `s_ns_url` empty → "NO URL"
-- `s_cgm_age > s_ns_stale_min` → "CGM No Conn"
-- Otherwise → "CGM Active"
+Status enum (`CgmStatus`, mirrors Nightscout-supercgm): `OK=0, NO_DATA=1,
+NO_CONN=2, OLD=3`. Set by pkjs (`CGM_STATUS`) and re-evaluated **locally on
+the watch every redraw** via `cgm_status_text()`:
 
-`s_cgm_age` is set from `KEY_CGM_AGE` (minutes since reading timestamp), calculated in `app.js` as `(Date.now() - entry.date) / 60000`.
+- `NO_CONN` → comp box "NOCON", banner "No Conn" (also set immediately by
+  `connection_service` when BT drops, with a short vibe; on reconnect the
+  watch sends `REQUEST_BG` to trigger an instant fetch)
+- `NO_DATA` or sgv≤0 → "NO-BG" / "No BG"
+- status `OLD` **or** `now - s_cgm_ts > s_ns_stale_min` → "OLDBG" / "Old BG"
+  (value stays valid but is marked stale; the banner shows its age)
+- otherwise fresh → value + trend arrow, banner "CGM Active" + delta + age
+
+Because the age is derived from `s_cgm_ts` (not a static age int), the face
+flips to OLDBG even if the phone never sends another message.
+
+### Fetch scheduling (pkjs)
+Synced mode (default): next fetch = `reading_ts + sensor_interval + 30 s`,
+using Nightscout server time (`status[0].now`) as reference to avoid phone
+clock skew. If the reading is already due, poll every 15 s; if it is older
+than 2 sensor intervals (sensor gap/warmup), back off to 1 min. Errors send
+`NO_CONN`/`NO_DATA` to the watch and retry after min(fallback, 1 min).
 
 ---
 

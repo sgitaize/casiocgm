@@ -21,7 +21,7 @@
 #define KEY_DATE_FORMAT     17
 #define KEY_SHAKE_2ND       18   // 0=CGM delta,1=steps,2=HR,3=battery,4=weather,5=date
 #define KEY_WDAY_LANG       19   // 0=EN, 1=DE
-#define KEY_SHOW_SECONDS    20   // reserved (not used on emery)
+#define KEY_SHOW_SECONDS    20   // 1=small seconds next to HH:MM, 0=off (default)
 #define KEY_COLOR_GHOST     21   // ghost segment color
 #define KEY_COLOR_LABEL_TOP 22   // top banner label color
 #define KEY_GHOST_ENABLED      23   // 1=show ghost segments (default), 0=hide
@@ -32,6 +32,7 @@
 #define KEY_COLOR_BACKLIGHT    28   // custom backlight tint color (rgb888)
 #define KEY_CGM_BOX_ENABLED    35   // 1=show border box around CGM status (default), 0=hide
 #define KEY_COLOR_CGM_BOX_BG   36   // fill color for CGM status box
+#define KEY_GHOST_COMP_ENABLED 37   // 1=ghost 8s in comp box (default), 0=hide (issue #4)
 #define KEY_CGM_VALUE          50
 #define KEY_CGM_DELTA       51
 #define KEY_CGM_TREND       52
@@ -41,6 +42,18 @@
 #define KEY_WEATHER_TEMP    56
 #define KEY_WEATHER_ICON    57
 #define KEY_BATT_PCT        58
+#define KEY_CGM_STATUS      59   // 0=OK,1=NO_DATA,2=NO_CONN,3=OLD (supercgm semantics)
+#define KEY_CGM_TS          60   // Unix ts (seconds) of last CGM reading
+#define KEY_CGM_SGV         61   // raw sgv in mg/dL (int) for range comparison
+#define KEY_REQUEST_BG      62   // watch → phone: request immediate BG fetch
+
+// ── CGM status (mirrors Nightscout-supercgm) ─────────────────────────────
+typedef enum {
+  CGM_STATUS_OK      = 0,  // valid reading
+  CGM_STATUS_NO_DATA = 1,  // server responded, nothing parseable
+  CGM_STATUS_NO_CONN = 2,  // network / phone unreachable
+  CGM_STATUS_OLD     = 3   // JS confirmed reading is stale
+} CgmStatus;
 
 // ── State ─────────────────────────────────────────────────────────────────
 static Window   *s_window;
@@ -73,9 +86,10 @@ static int  s_wday_lang       = 0;  // 0=EN, 1=DE
 static int  s_color_ghost      = 0xADADAD;  // ghost segment color
 static int  s_color_label_top  = 0xFFFFFF;  // top banner label color
 static int  s_ghost_enabled    = 1;         // 1=show ghost segments, 0=hide
+static int  s_ghost_comp_enabled = 1;       // 1=ghost 8s in comp box, 0=hide (issue #4)
 static int  s_color_cgm_banner = 0x38571A;  // CGM Active/Offline status text color
 static int  s_color_time2_bg   = 0xEEEEEE; // date+comp row background tint (matches LCD bg default)
-static int  s_color_cgm_info   = 0x000044; // color for CGM trend arrow + delta/age info
+static int  s_color_cgm_info   = 0xFFFFFF; // CGM trend/delta/age info (sits on black bezel)
 static int  s_backlight_enabled= 1;         // 1=use custom backlight color on shake, 0=system default
 static int  s_color_backlight  = 0xFFFFFF; // backlight tint (rgb888, default = white)
 static int  s_cgm_box_enabled  = 1;         // 1=show border box around CGM status, 0=hide
@@ -84,7 +98,10 @@ static int  s_color_cgm_box_bg = 0xEEEEEE; // CGM status box fill color (default
 static char s_cgm_value[16]   = "---";
 static char s_cgm_delta[16]   = "";
 static char s_cgm_trend[8]    = "-";
-static int  s_cgm_age         = 999;
+static int  s_cgm_status      = CGM_STATUS_NO_CONN; // until first message arrives
+static time_t s_cgm_ts        = 0;   // reading timestamp; watch ages locally
+static int  s_cgm_sgv         = 0;   // raw mg/dL for range comparison
+static int  s_show_seconds    = 0;   // 1=small seconds next to HH:MM
 
 static int  s_steps           = 0;
 static int  s_hr              = 0;
@@ -93,7 +110,8 @@ static char s_weather_icon[8] = "";
 static int  s_batt_pct        = 100;
 
 // ── Custom fonts (loaded in window_load) ──────────────────────────────────
-static GFont s_font_d14_time = NULL;  // DSEG14 52px : time
+static GFont s_font_d14_time = NULL;  // DSEG14 52px : time (no seconds)
+static GFont s_font_d14_time44 = NULL;// DSEG14 44px : time when seconds shown
 static GFont s_font_d7_date  = NULL;  // DSEG14 20px : date
 static GFont s_font_d7_comp  = NULL;  // DSEG14 Bold 22px : comp box real digits
 static GFont s_font_comp_reg = NULL;  // DSEG14 Regular 22px : comp box ghost digits
@@ -103,12 +121,37 @@ static GColor color_from_int(int v) {
   return GColorFromRGB((v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF);
 }
 
+// ── CGM state evaluation (supercgm semantics, aged locally on the watch) ──
+// Age is derived from the reading timestamp every redraw, so the display
+// flips to OLD-BG even if the phone never sends another message.
+static int cgm_age_min(void) {
+  if (s_cgm_ts <= 0) return 9999;
+  time_t now = time(NULL);
+  if (now <= s_cgm_ts) return 0;
+  return (int)((now - s_cgm_ts) / 60);
+}
+
+// Returns NULL when a fresh value should be shown, otherwise the
+// DSEG-renderable status text for the comp box ("NOCON"/"NO-BG"/"OLDBG").
+static const char *cgm_status_text(void) {
+  if (s_cgm_status == CGM_STATUS_NO_CONN)               return "NOCON";
+  if (s_cgm_status == CGM_STATUS_NO_DATA || s_cgm_sgv <= 0) return "NO-BG";
+  if (s_cgm_status == CGM_STATUS_OLD ||
+      cgm_age_min() > s_ns_stale_min)                    return "OLDBG";
+  return NULL;
+}
+
+static bool cgm_is_fresh(void) {
+  return (strlen(s_ns_url) > 0) && (cgm_status_text() == NULL);
+}
+
 static void complication_str(int slot, char *buf, size_t len) {
   switch (slot) {
     case 0: {
-      bool stale = (s_cgm_age > s_ns_stale_min) || (atoi(s_cgm_value) <= 0);
-      if (stale) snprintf(buf, len, "----");
-      else       snprintf(buf, len, "%s", s_cgm_value);
+      if (strlen(s_ns_url) == 0) { snprintf(buf, len, "----"); break; }
+      const char *st = cgm_status_text();
+      if (st) snprintf(buf, len, "%s", st);
+      else    snprintf(buf, len, "%s", s_cgm_value);
       break;
     }
     case 1: snprintf(buf, len, "%d", s_steps); break;
@@ -144,39 +187,19 @@ static void shake_str(char *buf, size_t len) {
   }
 }
 
-// Ghost segments behind real value – simulates unlit LCD segments
+// Ghost segments behind real value – simulates unlit LCD segments.
+// Respects the GHOST_ENABLED config toggle.
 static void lcd_text(GContext *ctx, const char *ghost, const char *real,
                      GFont font, GRect r, GColor gc, GColor rc,
                      GTextAlignment align) {
-  graphics_context_set_text_color(ctx, gc);
-  graphics_draw_text(ctx, ghost, font, r,
-                     GTextOverflowModeTrailingEllipsis, align, NULL);
+  if (s_ghost_enabled) {
+    graphics_context_set_text_color(ctx, gc);
+    graphics_draw_text(ctx, ghost, font, r,
+                       GTextOverflowModeTrailingEllipsis, align, NULL);
+  }
   graphics_context_set_text_color(ctx, rc);
   graphics_draw_text(ctx, real, font, r,
                      GTextOverflowModeTrailingEllipsis, align, NULL);
-}
-
-// Casio-style tapered band: hexagon shape, tapers to a centre-height point
-// on each edge. 20% of width on each side forms the diagonal taper.
-static void draw_casio_band(GContext *ctx, int y_top, int band_h, int W,
-                            GColor col) {
-  int cy = y_top + band_h / 2;
-  int cw = W / 5;
-  GPoint pts[6] = {
-    GPoint(0,     cy),
-    GPoint(cw,    y_top),
-    GPoint(W-cw,  y_top),
-    GPoint(W,     cy),
-    GPoint(W-cw,  y_top + band_h),
-    GPoint(cw,    y_top + band_h),
-  };
-  GPathInfo info = {6, pts};
-  GPath *gp = gpath_create(&info);
-  if (gp) {
-    graphics_context_set_fill_color(ctx, col);
-    gpath_draw_filled(ctx, gp);
-    gpath_destroy(gp);
-  }
 }
 
 // Draw a small arrow (◄ or ►) using lines only
@@ -252,16 +275,16 @@ static void battery_state_handler(BatteryChargeState state) {
 // ── DRAW ──────────────────────────────────────────────────────────────────
 //
 // Y layout (ref H=168, W=144 → scaled to emery 228×200):
-//   0..13    black label strip: QUARTZ (left) / TIME 2 (right)
-//  13..17    TOP RED BAND (tapered)
-//  17..30    button label zone: ◄LIGHT  pebble  UP► / SELECT►
-//  30..126   outer LCD rect (thick double-border, DSEG14 fonts)
-//    34..124   inner LCD rect (border + info strip)
+//   0..13    black label strip: QUARTZ (left) / TIME 2 (right, "2" blue)
+//  13..152   RED RING: continuous rounded frame (top band, sides, bottom band)
+//  17..30    button label zone: ◄LIGHT  pebble  UP► / ENTER►
+//  30..131   outer LCD frame (dark, light rim, DSEG14 fonts)
+//    34..118   inner white panel (2px double border + info strip)
 //      36..61    date (DSEG14 20px, left) + comp box (DSEG14 22px, right)
-//      61..112   HH:MM (DSEG14 52px, full width)
-//     112..124   info strip: BAT bar (left) | DOW letters (right)
-//  126..148  CGM status: [No URL/Offline/Active] [trend arrow] [DOWN►]
-//  148..152  BOTTOM RED BAND (tapered)
+//      61..106   HH:MM (DSEG14 52px; 44px + small seconds when enabled)
+//     106..118   info strip: BAT label+bar (left) | day marker squares (right)
+//   118..131   dark frame band: weekday letters S M T W T F S (right)
+//  133..148  CGM status: [No URL/No Conn/No BG/Old BG/Active] [trend] [DOWN►]
 //  152..168  E-Paper banner: "E-PAPER DISPLAY" in yellow
 //
 static void canvas_update_proc(Layer *layer, GContext *ctx) {
@@ -278,14 +301,12 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   GColor col_ghost = color_from_int(s_color_ghost);
   GColor col_red   = color_from_int(s_color_accent);
 
-  int cgm_int = atoi(s_cgm_value);
-  bool cgm_fresh = (strlen(s_ns_url) > 0)
-                && (s_cgm_age <= s_ns_stale_min)
-                && (cgm_int > 0);
+  // Range comparison uses the raw mg/dL sgv; thresholds arrive in mg/dL too.
+  bool cgm_fresh = cgm_is_fresh();
   GColor col_cgm = cgm_fresh
-      ? ( cgm_int >= s_ns_high ? color_from_int(s_color_cgm_high)
-        : cgm_int <= s_ns_low  ? color_from_int(s_color_cgm_low)
-                                : color_from_int(s_color_cgm_ok) )
+      ? ( s_cgm_sgv >= s_ns_high ? color_from_int(s_color_cgm_high)
+        : s_cgm_sgv <= s_ns_low  ? color_from_int(s_color_cgm_low)
+                                 : color_from_int(s_color_cgm_ok) )
       : color_from_int(s_color_cgm_low);
 
   // ── Fonts ─────────────────────────────────────────────────────────────
@@ -306,10 +327,10 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   int y_in      = SY(34);
   int y_dr      = SY(36);
   int y_time    = SY(61);
-  int y_info    = SY(112);
-  int y_in_end  = SY(124);
-  int y_lcd_end = SY(126);
-  int y_cgs     = SY(130);
+  int y_info    = SY(106);
+  int y_in_end  = SY(118);   // white panel ends here …
+  int y_lcd_end = SY(131);   // … dark outer frame continues (weekday band)
+  int y_cgs     = SY(133);
   int y_rs2     = SY(148);
   int y_ban     = SY(152);
 
@@ -317,13 +338,16 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   int lrad = SX(8);
   int irad = SX(6);
 
-  // ── X anchors ─────────────────────────────────────────────────────────
-  int lx = SX(1);
-  int lw = W - SX(2);
+  // ── X anchors (thin red rails sit flush at the screen edge) ──────────
+  int ring_s = SX(2);              // ring side thickness (thin, like the case)
+  if (ring_s < 2) ring_s = 2;
+  int lx = SX(6);
+  int lw = W - SX(12);
   int ix = lx + SX(4);
   int iw = lw - SX(8);
-  int x_l = ix + SX(3);
-  int x_r = ix + iw - SX(2);
+  // content insets clear of the 2px double border (gap=4 + stroke)
+  int x_l = ix + SX(5);
+  int x_r = ix + iw - SX(5);
 
   // Comp box width; 4 px right-margin keeps box clear of the double border
   int comp_w = SX(68);
@@ -351,6 +375,19 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   graphics_context_set_fill_color(ctx, GColorBlack);
   graphics_fill_rect(ctx, bounds, 0, GCornerNone);
 
+  // ── 1b. Red ring: flush with the screen edge ──────────────────────────
+  // Top/bottom bands plus thin rails hugging the very edge of the display;
+  // the inside stays black (like the Casio case).
+  {
+    graphics_context_set_fill_color(ctx, col_red);
+    graphics_fill_rect(ctx, GRect(0, y_rs1, W, y_ban - y_rs1),
+                       SX(12), GCornersAll);
+    graphics_context_set_fill_color(ctx, GColorBlack);
+    graphics_fill_rect(ctx,
+      GRect(ring_s, y_rs1 + SY(4), W - 2*ring_s, y_rs2 - (y_rs1 + SY(4))),
+      SX(10), GCornersAll);
+  }
+
   // ── 2. Top banner labels ──────────────────────────────────────────────
   {
     GColor col_lbl = color_from_int(s_color_label_top);
@@ -358,26 +395,48 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     graphics_draw_text(ctx, s_label_tl, f_tiny,
                        GRect(SX(4), SY(1), SX(72), y_rs1-SY(1)),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-    graphics_draw_text(ctx, s_label_tr, f_tiny,
-                       GRect(W-SX(76), SY(1), SX(72), y_rs1-SY(1)),
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
+    // Right label: if it ends in " <short suffix>" (e.g. "TIME 2"), the
+    // suffix is drawn in Casio blue like on the original.
+    GRect tr_r = GRect(W-SX(76), SY(1), SX(72), y_rs1-SY(1));
+    const char *sp = strrchr(s_label_tr, ' ');
+    if (sp && sp[1] != '\0' && strlen(sp + 1) <= 2) {
+      char prefix[32];
+      int plen = (int)(sp - s_label_tr);
+      if (plen > (int)sizeof(prefix) - 1) plen = sizeof(prefix) - 1;
+      memcpy(prefix, s_label_tr, plen);
+      prefix[plen] = '\0';
+      GSize suf_sz = graphics_text_layout_get_content_size(
+          sp + 1, f_tiny, tr_r, GTextOverflowModeTrailingEllipsis,
+          GTextAlignmentRight);
+      GRect pre_r = GRect(tr_r.origin.x, tr_r.origin.y,
+                          tr_r.size.w - suf_sz.w - SX(2), tr_r.size.h);
+      graphics_draw_text(ctx, prefix, f_tiny, pre_r,
+                         GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
+      graphics_context_set_text_color(ctx, GColorVividCerulean);
+      graphics_draw_text(ctx, sp + 1, f_tiny,
+                         GRect(tr_r.origin.x + tr_r.size.w - suf_sz.w, tr_r.origin.y,
+                               suf_sz.w, tr_r.size.h),
+                         GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
+    } else {
+      graphics_draw_text(ctx, s_label_tr, f_tiny, tr_r,
+                         GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
+    }
   }
 
-  // ── 3. Top red band ───────────────────────────────────────────────────
-  draw_casio_band(ctx, y_rs1, SY(4), W, col_red);
-
-  // ── 4. Button labels: ◄LIGHT · pebble · UP► / SELECT► ────────────────
+  // ── 4. Button labels: ◄LIGHT · pebble · UP► / ENTER► ─────────────────
   {
     int bl_y  = y_rs1 + SY(4);
     int bl_h  = y_lcd - bl_y;
     int row_h = bl_h / 2;
     int tri_b = 2;
+    int edge_l = SX(6);          // stay clear of the ring side rails
+    int edge_r = W - SX(6);
 
     int bl_cy = bl_y + bl_h / 2;
-    draw_arrow(ctx, GPoint(SX(4) + tri_b, bl_cy), tri_b, false, GColorWhite);
+    draw_arrow(ctx, GPoint(edge_l + tri_b, bl_cy), tri_b, false, GColorWhite);
     graphics_context_set_text_color(ctx, GColorWhite);
     graphics_draw_text(ctx, "LIGHT", f_lbl,
-                       GRect(SX(4)+tri_b*2+SX(3), bl_y+(bl_h-9)/2, SX(30), 9),
+                       GRect(edge_l+tri_b*2+SX(3), bl_y+(bl_h-9)/2, SX(30), 9),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
 
     graphics_context_set_text_color(ctx, GColorYellow);
@@ -388,18 +447,20 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     int cy_up  = bl_y + row_h / 2;
     graphics_context_set_text_color(ctx, GColorWhite);
     graphics_draw_text(ctx, "UP", f_lbl,
-                       GRect(W-SX(4)-tri_b*2-SX(16), bl_y, SX(14), row_h),
+                       GRect(edge_r-tri_b*2-SX(16), bl_y, SX(14), row_h),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
-    draw_arrow(ctx, GPoint(W-SX(4), cy_up), tri_b, true, GColorWhite);
+    draw_arrow(ctx, GPoint(edge_r, cy_up), tri_b, true, GColorWhite);
 
     int cy_sel = bl_y + row_h + row_h / 2;
-    graphics_draw_text(ctx, "SELECT", f_lbl,
-                       GRect(W-SX(4)-tri_b*2-SX(38), bl_y+row_h, SX(36), row_h),
+    graphics_draw_text(ctx, "ENTER", f_lbl,
+                       GRect(edge_r-tri_b*2-SX(38), bl_y+row_h, SX(36), row_h),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
-    draw_arrow(ctx, GPoint(W-SX(4), cy_sel), tri_b, true, GColorWhite);
+    draw_arrow(ctx, GPoint(edge_r, cy_sel), tri_b, true, GColorWhite);
   }
 
   // ── 5. Outer LCD frame ────────────────────────────────────────────────
+  // Chunky dark frame with a subtle light rim against the black case; the
+  // frame extends below the white panel (weekday letters live in that band).
   int lh = y_lcd_end - y_lcd;
   int bd = SX(4);
   graphics_context_set_fill_color(ctx, col_fg);
@@ -407,8 +468,8 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   graphics_context_set_fill_color(ctx, col_bg);
   graphics_fill_rect(ctx, GRect(lx+bd, y_in, lw-2*bd, y_in_end-y_in),
                      lrad > bd ? lrad-bd : 0, GCornersAll);
-  graphics_context_set_stroke_color(ctx, col_fg);
-  graphics_draw_round_rect(ctx, GRect(lx, y_lcd, lw, lh), lrad);
+  graphics_context_set_stroke_color(ctx, col_bg);
+  graphics_draw_round_rect(ctx, GRect(lx-1, y_lcd-1, lw+2, lh+2), lrad+1);
 
   // ── 5b. Time 2 row tinted background ─────────────────────────────────
   // Fills the date+comp row with a separate color (default matches LCD bg).
@@ -421,17 +482,19 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   }
 
   // ── 6. Double border around white LCD area + separator ───────────────
-  // Two concentric stroked rects, 3 px gap between them (filled col_bg).
+  // Two concentric 2px strokes, 3 px gap between them (filled col_bg).
   // Separator kept within the inner border.
   {
-    int gap = 3;
+    int gap = 4;
+    graphics_context_set_stroke_width(ctx, 2);
     graphics_context_set_stroke_color(ctx, col_fg);
     graphics_draw_round_rect(ctx, GRect(ix, y_in, iw, y_in_end-y_in), irad);
     graphics_draw_round_rect(ctx,
       GRect(ix+gap, y_in+gap, iw-2*gap, (y_in_end-y_in)-2*gap),
       irad > gap ? irad-gap : 0);
     graphics_draw_line(ctx,
-      GPoint(ix+gap+1, y_info), GPoint(ix+iw-gap-1, y_info));
+      GPoint(ix+gap+2, y_info), GPoint(ix+iw-gap-2, y_info));
+    graphics_context_set_stroke_width(ctx, 1);
   }
 
   // ── 7. Date ───────────────────────────────────────────────────────────
@@ -462,19 +525,23 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     complication_str(s_complication, cstr, sizeof(cstr));
     cgm_slot  = (s_complication == 0);
     cgm_valid = cgm_slot && cgm_fresh;
-    creal     = cgm_valid ? col_cgm : col_fg;
+    // Fresh CGM → range color; stale/no-data status text → low color;
+    // no URL ("----") or non-CGM slots → plain fg.
+    creal     = (cgm_slot && strlen(s_ns_url) > 0) ? col_cgm : col_fg;
   }
 
-  // Comp box border
+  // Comp box border: rounded 2px Casio-style frame
+  graphics_context_set_stroke_width(ctx, 2);
   graphics_context_set_stroke_color(ctx, col_fg);
-  graphics_draw_rect(ctx, GRect(comp_x, y_dr, comp_w, dr_h));
+  graphics_draw_round_rect(ctx, GRect(comp_x, y_dr, comp_w, dr_h), SX(4));
+  graphics_context_set_stroke_width(ctx, 1);
 
-  if (cgm_slot) {
-    // CGM: 4-digit value + trend arrow; narrower arrow to fit 22px font
+  if (cgm_slot && cgm_valid) {
+    // Fresh CGM: 4-digit value + trend arrow; narrower arrow to fit 22px font
     int arw_w = SX(12);
     int num_w = comp_w - arw_w - SX(2);
     GRect num_r = GRect(comp_x+SX(1), row_ty, num_w, render_h_comp);
-    if (s_ghost_enabled) {
+    if (s_ghost_enabled && s_ghost_comp_enabled) {
       graphics_context_set_text_color(ctx, col_ghost);
       graphics_draw_text(ctx, "8888", f_comp_g, num_r,
                          GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
@@ -482,14 +549,23 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     graphics_context_set_text_color(ctx, creal);
     graphics_draw_text(ctx, cstr, f_comp, num_r,
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
-    if (cgm_valid) {
-      draw_trend_arrow(ctx, s_cgm_trend[0],
-                       GRect(comp_x+SX(1)+num_w, row_ty, arw_w, render_h_comp),
-                       creal);
+    draw_trend_arrow(ctx, s_cgm_trend[0],
+                     GRect(comp_x+SX(1)+num_w, row_ty, arw_w, render_h_comp),
+                     creal);
+  } else if (cgm_slot) {
+    // CGM status text (NOCON / NO-BG / OLDBG) across the full box width
+    GRect all_r = GRect(comp_x+SX(1), row_ty, comp_w-SX(2), render_h_comp);
+    if (s_ghost_enabled && s_ghost_comp_enabled) {
+      graphics_context_set_text_color(ctx, col_ghost);
+      graphics_draw_text(ctx, "88888", f_comp_g, all_r,
+                         GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
     }
+    graphics_context_set_text_color(ctx, creal);
+    graphics_draw_text(ctx, cstr, f_comp, all_r,
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
   } else {
     GRect all_r = GRect(comp_x+SX(1), row_ty, comp_w-SX(2), render_h_comp);
-    if (s_ghost_enabled) {
+    if (s_ghost_enabled && s_ghost_comp_enabled) {
       graphics_context_set_text_color(ctx, col_ghost);
       graphics_draw_text(ctx, "88888", f_comp_g, all_r,
                          GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
@@ -499,7 +575,7 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
   }
 
-  // ── 9. Time HH:MM (DSEG14 52px, full LCD width) ───────────────────────
+  // ── 9. Time HH:MM (DSEG14 52px) + optional small seconds + P (PM) ─────
   char time_str[8];
   if (clock_is_24h_style()) {
     snprintf(time_str, sizeof(time_str), "%02d:%02d", tnow->tm_hour, tnow->tm_min);
@@ -508,31 +584,67 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     snprintf(time_str, sizeof(time_str), "%02d:%02d", hh, tnow->tm_min);
   }
   {
-    int tdy = y_time + (y_in_end - y_time - SY(42)) / 2;
+    int tdy = y_time + (y_info - y_time - SY(40)) / 2;
     if (tdy < y_time) tdy = y_time;
-    lcd_text(ctx, "88:88", time_str, f_dseg_lg,
-             GRect(ix + SX(1), tdy, iw - SX(2), y_info - tdy),
-             col_ghost, col_fg, GTextAlignmentLeft);
+    int th = y_info - tdy;
+
+    if (s_show_seconds) {
+      // HH:MM in the smaller 44px font, left-aligned; small seconds sit in
+      // the freed bottom-right corner, like the Casio original.
+      GFont f_time_s = s_font_d14_time44 ? s_font_d14_time44 : f_dseg_lg;
+      int tdy2 = y_time + (y_info - y_time - SY(34)) / 2;
+      if (tdy2 < y_time) tdy2 = y_time;
+      lcd_text(ctx, "88:88", time_str, f_time_s,
+               GRect(ix + SX(1), tdy2, iw - SX(2), y_info - tdy2),
+               col_ghost, col_fg, GTextAlignmentLeft);
+      char sec_str[4];
+      snprintf(sec_str, sizeof(sec_str), "%02d", tnow->tm_sec);
+      int sec_w = SX(26);
+      int sec_h = 24;                        // 22px comp font + leading
+      int sec_y = y_info - SY(2) - sec_h;
+      lcd_text(ctx, "88", sec_str, f_comp,
+               GRect(x_r - sec_w, sec_y, sec_w, sec_h),
+               col_ghost, col_fg, GTextAlignmentRight);
+    } else {
+      // No seconds: use the full width, centered
+      lcd_text(ctx, "88:88", time_str, f_dseg_lg,
+               GRect(ix + SX(1), tdy, iw - SX(2), th),
+               col_ghost, col_fg, GTextAlignmentCenter);
+    }
+
+    // "P" indicator (12h mode, PM) at the left edge of the time row
+    if (!clock_is_24h_style() && tnow->tm_hour >= 12) {
+      graphics_context_set_text_color(ctx, col_fg);
+      graphics_draw_text(ctx, "P", f_lbl,
+                         GRect(x_l, y_time - SY(1), SX(10), 10),
+                         GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+    }
   }
 
-  // ── 10+11. Info strip: BAT bar (left) | DOW letters (right) ──────────
+  // ── 10. Info strip: "BAT" label + bar (left) | day squares (right) ────
   int info_top = y_info + SY(1);
   int info_h   = y_in_end - y_info - SY(2);
   if (info_h < 4) info_h = 4;
   int mid_x = ix + iw / 2;
 
+  // "BAT" label
+  graphics_context_set_text_color(ctx, col_fg);
+  graphics_draw_text(ctx, "BAT", f_lbl,
+                     GRect(x_l, info_top + (info_h-9)/2 - 1, SX(16), 9),
+                     GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+
   // Battery bar
-  int bat_bx  = x_l;
-  int bat_bw  = mid_x - x_l - SX(3);
+  int bat_bx  = x_l + SX(17);
+  int bat_bw  = mid_x - bat_bx - SX(3);
   int bat_h   = (info_h * 3) / 5;
   if (bat_h < 3) bat_h = 3;
   int bat_top = info_top + (info_h - bat_h) / 2;
-  int n_seg   = 6;
+  int n_seg   = 8;
   int seg_gap = 2;
   int seg_w   = bat_bw > (n_seg+1)*seg_gap
                 ? (bat_bw - (n_seg+1)*seg_gap) / n_seg : 2;
   if (seg_w < 2) seg_w = 2;
-  if (seg_w > SX(8)) seg_w = SX(8);
+  if (seg_w > SX(6)) seg_w = SX(6);
   int lit = (s_batt_pct * n_seg + 50) / 100;
   if (lit > n_seg) lit = n_seg;
   graphics_context_set_stroke_color(ctx, col_fg);
@@ -543,7 +655,9 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     graphics_fill_rect(ctx, GRect(sx, bat_top+1, seg_w, bat_h-2), 0, GCornerNone);
   }
 
-  // Day-of-week strip
+  // ── 11. Weekday: marker squares inside LCD, letters on the bezel ─────
+  // (matches the Casio original: squares in the LCD info strip, white
+  //  S M T W T F S letters printed on the black case below the LCD)
   static const char *D_SUN_EN[] = {"S","M","T","W","T","F","S"};
   static const char *D_MON_EN[] = {"M","T","W","T","F","S","S"};
   static const char *D_SUN_DE[] = {"S","M","D","M","D","F","S"};
@@ -559,21 +673,36 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   int wday_x   = mid_x + SX(2);
   int wday_w   = x_r - wday_x;
   int day_step = wday_w / 7;
-  int wday_y = info_top - 3;  // shift weekday letters 3 px upward
+  int sq = SY(5);                       // marker square size
+  if (sq > info_h - 2) sq = info_h - 2;
+  if (sq < 3) sq = 3;
+  int sq_y = info_top + (info_h - sq) / 2;
   for (int i = 0; i < 7; i++) {
-    int dw = SX(10);
-    int dx = wday_x + i*day_step + (day_step - dw)/2;
+    int dx = wday_x + i*day_step + (day_step - sq)/2;
     if (i == today_idx) {
-      int r = 2; if (r > info_h/2) r = info_h/2; if (r > dw/2) r = dw/2;
       graphics_context_set_fill_color(ctx, col_fg);
-      graphics_fill_rect(ctx, GRect(dx-1, wday_y+2, dw+2, info_h), r, GCornersAll);
-      graphics_context_set_text_color(ctx, col_bg);
+      graphics_fill_rect(ctx, GRect(dx, sq_y, sq, sq), 0, GCornerNone);
+    } else if (s_ghost_enabled) {
+      graphics_context_set_fill_color(ctx, col_ghost);
+      graphics_fill_rect(ctx, GRect(dx, sq_y, sq, sq), 0, GCornerNone);
     } else {
-      graphics_context_set_text_color(ctx, col_ghost);
+      graphics_context_set_stroke_color(ctx, col_ghost);
+      graphics_draw_rect(ctx, GRect(dx, sq_y, sq, sq));
     }
-    graphics_draw_text(ctx, days_arr[i], f_tiny,
-                       GRect(dx, wday_y, dw, info_h),
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+  }
+  // Letters in the dark bottom band of the LCD frame (outer border of the
+  // box, like the Casio original), one per square, same columns
+  {
+    int lt_h = y_lcd_end - y_in_end;
+    int lt_y = y_in_end + (lt_h - 9) / 2 - 1;
+    graphics_context_set_text_color(ctx, col_bg);
+    for (int i = 0; i < 7; i++) {
+      int dw = SX(10);
+      int dx = wday_x + i*day_step + (day_step - dw)/2;
+      graphics_draw_text(ctx, days_arr[i], f_lbl,
+                         GRect(dx, lt_y, dw, 9),
+                         GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+    }
   }
 
   // ── 12. CGM status + DOWN button label ───────────────────────────────
@@ -582,13 +711,15 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     int cgs_cy = y_cgs + cgs_h / 2;
 
     char cgs_txt[16];
-    GColor cgs_col;
+    GColor cgs_col = color_from_int(s_color_cgm_low);
     if (strlen(s_ns_url) == 0) {
       snprintf(cgs_txt, sizeof(cgs_txt), "No URL");
-      cgs_col = color_from_int(s_color_cgm_low);
+    } else if (s_cgm_status == CGM_STATUS_NO_CONN) {
+      snprintf(cgs_txt, sizeof(cgs_txt), "No Conn");
+    } else if (s_cgm_status == CGM_STATUS_NO_DATA || s_cgm_sgv <= 0) {
+      snprintf(cgs_txt, sizeof(cgs_txt), "No BG");
     } else if (!cgm_fresh) {
-      snprintf(cgs_txt, sizeof(cgs_txt), "CGM Offline");
-      cgs_col = color_from_int(s_color_cgm_low);
+      snprintf(cgs_txt, sizeof(cgs_txt), "Old BG");
     } else {
       snprintf(cgs_txt, sizeof(cgs_txt), "CGM Active");
       cgs_col = color_from_int(s_color_cgm_banner);
@@ -599,7 +730,7 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
         cgs_txt, f_tiny, GRect(0, 0, W / 2, cgs_h),
         GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft);
     int box_w = txt_sz.w + 2 * box_pad;
-    GRect box_r = GRect(SX(2), y_cgs+1, box_w, cgs_h-2);
+    GRect box_r = GRect(SX(6), y_cgs+1, box_w, cgs_h-2);
 
     // #7: optional border box — same corner radius as inner LCD frame
     if (s_cgm_box_enabled) {
@@ -611,36 +742,47 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     // Text centered inside box
     graphics_context_set_text_color(ctx, cgs_col);
     graphics_draw_text(ctx, cgs_txt, f_tiny,
-                       GRect(SX(2)+box_pad, y_cgs+1, box_w-2*box_pad, cgs_h-2),
+                       GRect(SX(6)+box_pad, y_cgs+1, box_w-2*box_pad, cgs_h-2),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 
+    int cgm_age = cgm_age_min();
     if (cgm_fresh) {
       // Trend arrow directly after the box
       GColor col_info = color_from_int(s_color_cgm_info);
-      int arrow_x = SX(2) + box_w + SX(3);
+      int arrow_x = SX(6) + box_w + SX(3);
       draw_trend_arrow(ctx, s_cgm_trend[0],
                        GRect(arrow_x, y_cgs+1, SX(11), cgs_h-2), col_info);
       // #8: delta + age info next to trend arrow
       char info_str[32];
-      if (s_cgm_age < 60)
-        snprintf(info_str, sizeof(info_str), "%s %dm", s_cgm_delta, s_cgm_age);
+      if (cgm_age < 60)
+        snprintf(info_str, sizeof(info_str), "%s %dm", s_cgm_delta, cgm_age);
       else
-        snprintf(info_str, sizeof(info_str), "%s %dh", s_cgm_delta, s_cgm_age/60);
+        snprintf(info_str, sizeof(info_str), "%s %dh", s_cgm_delta, cgm_age/60);
       graphics_context_set_text_color(ctx, col_info);
       graphics_draw_text(ctx, info_str, f_lbl,
                          GRect(arrow_x + SX(12), y_cgs+(cgs_h-9)/2, SX(21), 9),
+                         GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+    } else if (strlen(s_ns_url) > 0 && s_cgm_sgv > 0 && s_cgm_ts > 0) {
+      // Stale reading: show how old it is next to the status box
+      GColor col_info = color_from_int(s_color_cgm_info);
+      char info_str[16];
+      if (cgm_age < 60)       snprintf(info_str, sizeof(info_str), "%dm", cgm_age);
+      else if (cgm_age < 6000) snprintf(info_str, sizeof(info_str), "%dh", cgm_age/60);
+      else                    snprintf(info_str, sizeof(info_str), "--");
+      graphics_context_set_text_color(ctx, col_info);
+      graphics_draw_text(ctx, info_str, f_lbl,
+                         GRect(SX(6)+box_w+SX(3), y_cgs+(cgs_h-9)/2, SX(24), 9),
                          GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
     }
 
     graphics_context_set_text_color(ctx, GColorWhite);
     graphics_draw_text(ctx, "DOWN", f_lbl,
-                       GRect(W-SX(4)-2*2-SX(34), y_cgs+(cgs_h-9)/2, SX(32), 9),
+                       GRect(W-SX(6)-2*2-SX(34), y_cgs+(cgs_h-9)/2, SX(32), 9),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
-    draw_arrow(ctx, GPoint(W-SX(4), cgs_cy), 2, true, GColorWhite);
+    draw_arrow(ctx, GPoint(W-SX(6), cgs_cy), 2, true, GColorWhite);
   }
 
-  // ── 13. Bottom red band ───────────────────────────────────────────────
-  draw_casio_band(ctx, y_rs2, y_ban - y_rs2, W, col_red);
+  // (bottom red band is part of the ring drawn in 1b)
 
   // ── 14. E-Paper banner ────────────────────────────────────────────────
   int ban_h = H - y_ban;
@@ -672,6 +814,27 @@ static void accel_tap_handler(AccelAxisType axis, int32_t direction) {
   if (s_canvas) layer_mark_dirty(s_canvas);
 }
 
+// ── Bluetooth connection ─────────────────────────────────────────────────
+// Phone/BT lost → show NOCON immediately instead of waiting for staleness.
+// On reconnect, ask the phone for a fresh BG right away.
+static void request_bg_fetch(void) {
+  DictionaryIterator *iter;
+  if (app_message_outbox_begin(&iter) == APP_MSG_OK) {
+    dict_write_uint8(iter, KEY_REQUEST_BG, 1);
+    app_message_outbox_send();
+  }
+}
+
+static void app_connection_handler(bool connected) {
+  if (!connected) {
+    s_cgm_status = CGM_STATUS_NO_CONN;
+    vibes_short_pulse();  // single buzz so user notices disconnect
+  } else {
+    request_bg_fetch();
+  }
+  if (s_canvas) layer_mark_dirty(s_canvas);
+}
+
 // ── Tick ──────────────────────────────────────────────────────────────────
 static void tick_handler(struct tm *tick_time, TimeUnits units) {
   if (units & MINUTE_UNIT) {
@@ -689,6 +852,14 @@ static void tick_handler(struct tm *tick_time, TimeUnits units) {
     s_batt_pct = (int)battery_state_service_peek().charge_percent;
   }
   if (s_canvas) layer_mark_dirty(s_canvas);
+}
+
+// ── Tick subscription (seconds only when the seconds display is on) ──────
+static void tick_handler(struct tm *tick_time, TimeUnits units);
+static void update_tick_subscription(void) {
+  tick_timer_service_subscribe(
+      s_show_seconds ? (SECOND_UNIT | MINUTE_UNIT) : MINUTE_UNIT,
+      tick_handler);
 }
 
 // ── AppMessage ────────────────────────────────────────────────────────────
@@ -717,13 +888,40 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   GI(KEY_COLOR_BACKLIGHT,s_color_backlight);
   GI(KEY_CGM_BOX_ENABLED,s_cgm_box_enabled);
   GI(KEY_COLOR_CGM_BOX_BG,s_color_cgm_box_bg);
+  GI(KEY_GHOST_COMP_ENABLED,s_ghost_comp_enabled);
+  {
+    int prev_secs = s_show_seconds;
+    GI(KEY_SHOW_SECONDS,s_show_seconds);
+    if (s_show_seconds != prev_secs) update_tick_subscription();
+  }
   GS(KEY_CGM_VALUE,s_cgm_value); GS(KEY_CGM_DELTA,s_cgm_delta);
-  GS(KEY_CGM_TREND,s_cgm_trend); GI(KEY_CGM_AGE,s_cgm_age);
+  GS(KEY_CGM_TREND,s_cgm_trend);
+  GI(KEY_CGM_SGV,s_cgm_sgv);
+  if ((t = dict_find(iter, KEY_CGM_TS))) {
+    s_cgm_ts = (time_t)t->value->int32;
+  } else if ((t = dict_find(iter, KEY_CGM_AGE))) {
+    // Fallback for messages without a timestamp: derive it from the age
+    s_cgm_ts = time(NULL) - (time_t)t->value->int32 * 60;
+  }
+  if ((t = dict_find(iter, KEY_CGM_STATUS))) {
+    s_cgm_status = (int)t->value->int32;
+    // For OLD the value is still valid (just stale) → keep it.
+    if (s_cgm_status == CGM_STATUS_NO_DATA || s_cgm_status == CGM_STATUS_NO_CONN) {
+      s_cgm_sgv = 0;
+      s_cgm_trend[0] = '\0';
+    }
+  }
   GI(KEY_STEPS,s_steps); GI(KEY_HR,s_hr);
   GI(KEY_WEATHER_TEMP,s_weather_temp); GS(KEY_WEATHER_ICON,s_weather_icon);
   GI(KEY_BATT_PCT,s_batt_pct);
 #undef GS
 #undef GI
+  // Persist only config messages (avoid flash wear on every 5-min CGM push);
+  // config messages always carry KEY_COLOR_BG, data messages never do.
+  if (!dict_find(iter, KEY_COLOR_BG)) {
+    if (s_canvas) layer_mark_dirty(s_canvas);
+    return;
+  }
   persist_write_string(KEY_NS_URL,s_ns_url);
   persist_write_string(KEY_NS_TOKEN,s_ns_token);
   persist_write_int(KEY_NS_UNITS,s_ns_units);
@@ -754,6 +952,8 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   persist_write_int(KEY_COLOR_BACKLIGHT,s_color_backlight);
   persist_write_int(KEY_CGM_BOX_ENABLED,s_cgm_box_enabled);
   persist_write_int(KEY_COLOR_CGM_BOX_BG,s_color_cgm_box_bg);
+  persist_write_int(KEY_GHOST_COMP_ENABLED,s_ghost_comp_enabled);
+  persist_write_int(KEY_SHOW_SECONDS,s_show_seconds);
   if (s_canvas) layer_mark_dirty(s_canvas);
 }
 
@@ -782,6 +982,8 @@ static void load_persist(void) {
   LI(KEY_COLOR_BACKLIGHT,s_color_backlight);
   LI(KEY_CGM_BOX_ENABLED,s_cgm_box_enabled);
   LI(KEY_COLOR_CGM_BOX_BG,s_color_cgm_box_bg);
+  LI(KEY_GHOST_COMP_ENABLED,s_ghost_comp_enabled);
+  LI(KEY_SHOW_SECONDS,s_show_seconds);
 #undef LS
 #undef LI
 }
@@ -789,6 +991,7 @@ static void load_persist(void) {
 // ── Window ────────────────────────────────────────────────────────────────
 static void window_load(Window *w) {
   s_font_d14_time = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG_TIME52));
+  s_font_d14_time44 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG_TIME44));
   s_font_d7_date  = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG_DATE20));
   s_font_d7_comp  = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG_COMP22));
   s_font_comp_reg = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG_COMP22_REG));
@@ -803,6 +1006,7 @@ static void window_unload(Window *w) {
   layer_destroy(s_canvas);
   s_canvas = NULL;
   if (s_font_d14_time) { fonts_unload_custom_font(s_font_d14_time); s_font_d14_time = NULL; }
+  if (s_font_d14_time44) { fonts_unload_custom_font(s_font_d14_time44); s_font_d14_time44 = NULL; }
   if (s_font_d7_date)  { fonts_unload_custom_font(s_font_d7_date);  s_font_d7_date  = NULL; }
   if (s_font_d7_comp)  { fonts_unload_custom_font(s_font_d7_comp);  s_font_d7_comp  = NULL; }
   if (s_font_comp_reg) { fonts_unload_custom_font(s_font_comp_reg); s_font_comp_reg = NULL; }
@@ -819,8 +1023,11 @@ static void init(void) {
     .unload = window_unload
   });
   window_stack_push(s_window, true);
-  tick_timer_service_subscribe(SECOND_UNIT|MINUTE_UNIT, tick_handler);
+  update_tick_subscription();
   accel_tap_service_subscribe(accel_tap_handler);
+  connection_service_subscribe((ConnectionHandlers){
+    .pebble_app_connection_handler = app_connection_handler
+  });
   {
     uint32_t in_max  = app_message_inbox_size_maximum();
     uint32_t out_max = app_message_outbox_size_maximum();
@@ -833,6 +1040,7 @@ static void init(void) {
 static void deinit(void) {
   tick_timer_service_unsubscribe();
   accel_tap_service_unsubscribe();
+  connection_service_unsubscribe();
   battery_state_service_unsubscribe();
   window_destroy(s_window);
 }
