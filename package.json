@@ -1,0 +1,84 @@
+{
+  "name": "casiotime2",
+  "author": "simon",
+  "version": "1.0.0",
+  "keywords": [
+    "pebble-app"
+  ],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "CasioTime2",
+    "uuid": "7592f92b-f20a-4a21-b092-bc2c633ce2c9",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "emery"
+    ],
+    "watchapp": {
+      "watchface": true
+    },
+    "capabilities": [
+      "configurable"
+    ],
+    "resources": {
+      "media": [
+        {
+          "type": "font",
+          "name": "FONT_DSEG_TIME38",
+          "file": "fonts/DSEG14Classic-Bold.ttf",
+          "characterRegex": "[0-9:]",
+          "size": 38
+        },
+        {
+          "type": "font",
+          "name": "FONT_DSEG_DATE16",
+          "file": "fonts/DSEG14Classic-Bold.ttf",
+          "characterRegex": "[0-9-]",
+          "size": 16
+        },
+        {
+          "type": "font",
+          "name": "FONT_DSEG_COMP18",
+          "file": "fonts/DSEG14Classic-Bold.ttf",
+          "characterRegex": "[0-9,. +NOCBGLD-]",
+          "size": 18
+        },
+        {
+          "type": "font",
+          "name": "FONT_DSEG_GHOSTC18",
+          "file": "fonts/DSEG14Classic-Regular.ttf",
+          "characterRegex": "[0-9,.:]",
+          "size": 18
+        },
+        {
+          "type": "font",
+          "name": "FONT_DSEG_GHOSTT38",
+          "file": "fonts/DSEG14Classic-Regular.ttf",
+          "characterRegex": "[0-9:]",
+          "size": 38
+        },
+        {
+          "type": "font",
+          "name": "FONT_DSEG_GHOSTD16",
+          "file": "fonts/DSEG14Classic-Regular.ttf",
+          "characterRegex": "[0-9-]",
+          "size": 16
+        }
+      ]
+    },
+    "messageKeys": {
+      "BG_STATUS": 0,
+      "BG_SGV": 1,
+      "BG_TIMESTAMP": 2,
+      "BG_TREND": 3,
+      "BG_DELTA": 4,
+      "BG_UNIT": 5,
+      "BG_THRESH_LOW": 6,
+      "BG_THRESH_HIGH": 7,
+      "BG_TIMEOUT_MIN": 8,
+      "REQUEST_BG": 9,
+      "SHOW_SECONDS": 10
+    }
+  }
+}
