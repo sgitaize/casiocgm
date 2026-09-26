@@ -248,8 +248,8 @@ pebble logs
   screenshots `emery_*.png` (200×228, filename must start with the platform).
 - Upload: `pebble login` once (browser; on a headless server use
   `--no-open-browser` and forward the final `http://localhost:60000/?…`
-  redirect URL with curl), then `store/publish.sh`. Without
-  `--is-published` the release stays in the dashboard (publish/private there).
+  redirect URL with curl), then `store/publish.sh`, which publishes the release publicly
+  (`--is-published`, Simon's decision 2026-09-26).
 
 ---
 

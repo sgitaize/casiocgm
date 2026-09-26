@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Uploads the current build to the Pebble appstore dashboard (NOT public:
-# without --is-published the release stays in the dashboard until it is
-# published there). Requires a prior `pebble login`.
+# Uploads the current build to the Pebble appstore and publishes the release
+# publicly (--is-published). Requires a prior `pebble login`.
 # Usage: store/publish.sh            (from anywhere)
 set -euo pipefail
 export PATH=$HOME/.local/bin:$PATH
@@ -9,6 +8,7 @@ cd "$(dirname "$0")/.."
 pebble login --status
 pebble publish \
   --non-interactive \
+  --is-published \
   --name "CasioCGM" \
   --description "$(cat store/description.txt)" \
   --source "https://github.com/sgitaize/casiocgm" \
