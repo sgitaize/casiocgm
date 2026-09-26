@@ -3,18 +3,12 @@
 // complication shows Nightscout CGM data (logic mirrors supercgm).
 #include <pebble.h>
 
-// ── AppMessage keys (must match src/pkjs/index.js K map) ─────────────────
-#define KEY_BG_STATUS      0
-#define KEY_BG_SGV         1   // mg/dL int, or mmol×10 when BG_UNIT=1
-#define KEY_BG_TIMESTAMP   2   // Unix seconds of the reading
-#define KEY_BG_TREND       3   // "^^" "^" "^>" "-" ">v" "v" "vv"
-#define KEY_BG_DELTA       4   // same encoding as SGV; -9999 = unknown
-#define KEY_BG_UNIT        5   // 0=mg/dL, 1=mmol
-#define KEY_BG_THRESH_LOW  6   // same encoding as SGV
-#define KEY_BG_THRESH_HIGH 7
-#define KEY_BG_TIMEOUT_MIN 8   // minutes until a reading counts as old
-#define KEY_REQUEST_BG     9   // watch → phone (reserved, unused for now)
-#define KEY_SHOW_SECONDS  10   // 1=small seconds next to HH:MM (default), 0=off
+// ── AppMessage keys: MESSAGE_KEY_* generated from package.json messageKeys
+//   BG_SGV / BG_DELTA / BG_THRESH_*: mg/dL int, or mmol×10 when BG_UNIT=1
+//   BG_TIMESTAMP: Unix seconds of the reading · BG_DELTA -9999 = unknown
+//   BG_TREND: "^^" "^" "^>" "-" ">v" "v" "vv"
+//   BG_FETCH_INTERVAL_MIN: sensor interval; reading is stale after 2× (min 5)
+//   SHOW_SECONDS: 1=small seconds next to HH:MM (default), 0=off
 
 // BG status semantics (mirrors Nightscout-supercgm)
 enum { BG_OK = 0, BG_NO_DATA = 1, BG_NO_CONN = 2, BG_OLD = 3 };
@@ -24,14 +18,18 @@ static Window *s_window;
 static Layer  *s_canvas;
 
 static int    s_bg_status   = -1;     // -1 = nothing received yet
-static int    s_bg_sgv      = 0;
+static int    s_bg_sgv      = -1;     // -1 = no valid reading
 static time_t s_bg_ts       = 0;
 static char   s_bg_trend[4] = "";
 static int    s_bg_delta    = -9999;
 static int    s_bg_unit     = 0;
 static int    s_th_low      = 80;
 static int    s_th_high     = 180;
-static int    s_bg_timeout  = 20;
+static int    s_bg_interval = 5;      // sensor interval (min)
+static bool   s_vibe_low    = false;
+static bool   s_vibe_high   = false;
+static time_t s_last_vibe_low_ts  = 0;
+static time_t s_last_vibe_high_ts = 0;
 
 static int    s_batt_pct    = 100;
 static int    s_show_seconds = 1;
@@ -46,16 +44,24 @@ static GFont s_f_gh48, s_f_gh20, s_f_gh22;            // ghost segments (Regular
 #define COL_AMBER  GColorFromRGB(0xAA, 0x55, 0x00)
 #define COL_BLUE   GColorFromRGB(0x00, 0x55, 0xFF)
 #define COL_YELLOW GColorFromRGB(0xFF, 0xFF, 0x00)
+#define COL_GREY   GColorDarkGray
 
-// ── CGM helpers ──────────────────────────────────────────────────────────
+// ── CGM helpers (logic mirrors Nightscout-supercgm) ──────────────────────
 static int bg_age_min(void) {
   if (s_bg_ts <= 0) return 9999;
   time_t now = time(NULL);
   return (now > s_bg_ts) ? (int)((now - s_bg_ts) / 60) : 0;
 }
 
+// supercgm: a reading is stale after 2× the sensor interval (at least 5 min)
+static bool bg_is_stale(void) {
+  int stale_sec = s_bg_interval * 2 * 60;
+  if (stale_sec < 300) stale_sec = 300;
+  return s_bg_status == BG_OLD || (int)(time(NULL) - s_bg_ts) > stale_sec;
+}
+
 static bool bg_is_fresh(void) {
-  return s_bg_status == BG_OK && s_bg_sgv > 0 && bg_age_min() <= s_bg_timeout;
+  return s_bg_status == BG_OK && s_bg_sgv >= 0 && !bg_is_stale();
 }
 
 // 5-glyph string for the comp box
@@ -63,18 +69,41 @@ static void bg_comp_str(char *buf, size_t len) {
   if (s_bg_status < 0)              { snprintf(buf, len, "-----"); return; }
   if (s_bg_status == BG_NO_CONN)    { snprintf(buf, len, "NOCON"); return; }
   if (s_bg_status == BG_NO_DATA ||
-      s_bg_sgv <= 0)                { snprintf(buf, len, "NO-BG"); return; }
-  if (s_bg_status == BG_OLD ||
-      bg_age_min() > s_bg_timeout)  { snprintf(buf, len, "OLDBG"); return; }
+      s_bg_sgv < 0)                 { snprintf(buf, len, "NO-BG"); return; }
+  if (bg_is_stale())                { snprintf(buf, len, "OLDBG"); return; }
   if (s_bg_unit == 1) snprintf(buf, len, "%d,%d", s_bg_sgv / 10, s_bg_sgv % 10);
   else                snprintf(buf, len, "%d", s_bg_sgv);
 }
 
+// Threshold colors on fresh readings, grey on stale/error (supercgm)
 static GColor bg_range_color(void) {
-  if (!bg_is_fresh())          return COL_NAVY;
-  if (s_bg_sgv <= s_th_low)    return COL_RED;
-  if (s_bg_sgv >= s_th_high)   return COL_AMBER;
+  if (s_bg_status < 0)         return COL_NAVY;
+  if (!bg_is_fresh())          return COL_GREY;
+  if (s_bg_sgv < s_th_low)     return COL_RED;
+  if (s_bg_sgv > s_th_high)    return COL_AMBER;
   return COL_NAVY;
+}
+
+// Vibrate on threshold breach, 10-minute cooldown per direction (supercgm)
+static void check_bg_alerts(void) {
+  if (s_bg_status != BG_OK || s_bg_sgv < 0) return;
+  time_t now = time(NULL);
+  const int cooldown = 600;
+  if (s_vibe_low && s_bg_sgv < s_th_low) {
+    if ((now - s_last_vibe_low_ts) >= cooldown) {
+      s_last_vibe_low_ts = now;
+      static const uint32_t segs[] = {200, 100, 200, 100, 200};
+      VibePattern pat = { .durations = segs, .num_segments = ARRAY_LENGTH(segs) };
+      vibes_enqueue_custom_pattern(pat);
+    }
+  } else if (s_vibe_high && s_bg_sgv > s_th_high) {
+    if ((now - s_last_vibe_high_ts) >= cooldown) {
+      s_last_vibe_high_ts = now;
+      static const uint32_t segs[] = {200, 100, 200};
+      VibePattern pat = { .durations = segs, .num_segments = ARRAY_LENGTH(segs) };
+      vibes_enqueue_custom_pattern(pat);
+    }
+  }
 }
 
 // Trend string → single char code for the arrow renderer
@@ -385,23 +414,22 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     if (s_bg_status < 0)                 snprintf(l2, sizeof(l2), "WAITING");
     else if (s_bg_status == BG_NO_CONN)  snprintf(l2, sizeof(l2), "NO CONN");
     else if (s_bg_status == BG_NO_DATA ||
-             s_bg_sgv <= 0)              snprintf(l2, sizeof(l2), "NO DATA");
+             s_bg_sgv < 0)               snprintf(l2, sizeof(l2), "NO DATA");
     else if (!bg_is_fresh()) {
       int a = bg_age_min();
       if (a < 60)        snprintf(l2, sizeof(l2), "OLD %dM", a);
       else if (a < 6000) snprintf(l2, sizeof(l2), "OLD %dH", a / 60);
       else               snprintf(l2, sizeof(l2), "OLD");
     } else {
-      // fresh: delta + age, e.g. "+2 5M" / "+0,2 5M"
+      // fresh: delta + age, e.g. "+2 5M" / "+0,2 5M" / "+-0 5M" (supercgm)
       char dstr[16];
-      if (s_bg_delta == -9999) snprintf(dstr, sizeof(dstr), "--");
-      else if (s_bg_unit == 1) {
-        int d = s_bg_delta;
-        snprintf(dstr, sizeof(dstr), "%s%d,%d", d < 0 ? "-" : "+",
-                 (d < 0 ? -d : d) / 10, (d < 0 ? -d : d) % 10);
-      } else {
-        snprintf(dstr, sizeof(dstr), "%+d", s_bg_delta);
-      }
+      int d = s_bg_delta;
+      int dabs = d < 0 ? -d : d;
+      if (d == -9999)          snprintf(dstr, sizeof(dstr), "--");
+      else if (d == 0)         snprintf(dstr, sizeof(dstr), "+-0");
+      else if (s_bg_unit == 1) snprintf(dstr, sizeof(dstr), "%c%d,%d",
+                                        d < 0 ? '-' : '+', dabs / 10, dabs % 10);
+      else                     snprintf(dstr, sizeof(dstr), "%+d", d);
       snprintf(l2, sizeof(l2), "%s %dM", dstr, bg_age_min());
     }
     graphics_context_set_text_color(ctx, COL_BLUE);
@@ -448,6 +476,17 @@ static void update_tick_subscription(void) {
       s_show_seconds ? SECOND_UNIT : MINUTE_UNIT, tick_handler);
 }
 
+// Phone connection lost → NOCON immediately, single buzz (supercgm)
+static void connection_handler(bool connected) {
+  if (connected) return;
+  s_bg_status = BG_NO_CONN;
+  s_bg_sgv = -1;
+  s_bg_delta = -9999;
+  s_bg_trend[0] = 0;
+  vibes_short_pulse();
+  if (s_canvas) layer_mark_dirty(s_canvas);
+}
+
 static void battery_handler(BatteryChargeState state) {
   s_batt_pct = (int)state.charge_percent;
   if (s_canvas) layer_mark_dirty(s_canvas);
@@ -455,17 +494,34 @@ static void battery_handler(BatteryChargeState state) {
 
 static void inbox_received(DictionaryIterator *iter, void *context) {
   Tuple *t;
-  if ((t = dict_find(iter, KEY_BG_STATUS)))      s_bg_status  = (int)t->value->int32;
-  if ((t = dict_find(iter, KEY_BG_SGV)))         s_bg_sgv     = (int)t->value->int32;
-  if ((t = dict_find(iter, KEY_BG_TIMESTAMP)))   s_bg_ts      = (time_t)t->value->int32;
-  if ((t = dict_find(iter, KEY_BG_TREND)))
+  // Config first, so alerts below use the new thresholds
+  if ((t = dict_find(iter, MESSAGE_KEY_BG_UNIT)))        s_bg_unit = t->value->int32 ? 1 : 0;
+  if ((t = dict_find(iter, MESSAGE_KEY_BG_THRESH_LOW)))  s_th_low  = (int)t->value->int32;
+  if ((t = dict_find(iter, MESSAGE_KEY_BG_THRESH_HIGH))) s_th_high = (int)t->value->int32;
+  if ((t = dict_find(iter, MESSAGE_KEY_BG_FETCH_INTERVAL_MIN))) {
+    s_bg_interval = (int)t->value->int32;
+    if (s_bg_interval < 1) s_bg_interval = 1;
+  }
+  if ((t = dict_find(iter, MESSAGE_KEY_VIBE_ON_LOW)))    s_vibe_low  = t->value->int32 != 0;
+  if ((t = dict_find(iter, MESSAGE_KEY_VIBE_ON_HIGH)))   s_vibe_high = t->value->int32 != 0;
+
+  // Reading
+  if ((t = dict_find(iter, MESSAGE_KEY_BG_SGV)))       s_bg_sgv = (int)t->value->int32;
+  if ((t = dict_find(iter, MESSAGE_KEY_BG_TIMESTAMP))) s_bg_ts  = (time_t)t->value->int32;
+  if ((t = dict_find(iter, MESSAGE_KEY_BG_TREND)))
     snprintf(s_bg_trend, sizeof(s_bg_trend), "%s", t->value->cstring);
-  if ((t = dict_find(iter, KEY_BG_DELTA)))       s_bg_delta   = (int)t->value->int32;
-  if ((t = dict_find(iter, KEY_BG_UNIT)))        s_bg_unit    = (int)t->value->int32;
-  if ((t = dict_find(iter, KEY_BG_THRESH_LOW)))  s_th_low     = (int)t->value->int32;
-  if ((t = dict_find(iter, KEY_BG_THRESH_HIGH))) s_th_high    = (int)t->value->int32;
-  if ((t = dict_find(iter, KEY_BG_TIMEOUT_MIN))) s_bg_timeout = (int)t->value->int32;
-  if ((t = dict_find(iter, KEY_SHOW_SECONDS))) {
+  if ((t = dict_find(iter, MESSAGE_KEY_BG_DELTA)))     s_bg_delta = (int)t->value->int32;
+  if ((t = dict_find(iter, MESSAGE_KEY_BG_STATUS))) {
+    s_bg_status = (int)t->value->int32;
+    // NO_DATA / NO_CONN carry no valid reading; OLD keeps the stale value
+    if (s_bg_status == BG_NO_DATA || s_bg_status == BG_NO_CONN) {
+      s_bg_sgv = -1;
+      s_bg_delta = -9999;
+      s_bg_trend[0] = 0;
+    }
+    check_bg_alerts();
+  }
+  if ((t = dict_find(iter, MESSAGE_KEY_SHOW_SECONDS))) {
     int prev = s_show_seconds;
     s_show_seconds = (int)t->value->int32 ? 1 : 0;
     if (s_show_seconds != prev) update_tick_subscription();
@@ -509,6 +565,9 @@ static void init(void) {
   window_stack_push(s_window, true);
   update_tick_subscription();
   battery_state_service_subscribe(battery_handler);
+  connection_service_subscribe((ConnectionHandlers) {
+    .pebble_app_connection_handler = connection_handler
+  });
   app_message_register_inbox_received(inbox_received);
   app_message_open(256, 64);
 }
@@ -516,6 +575,7 @@ static void init(void) {
 static void deinit(void) {
   tick_timer_service_unsubscribe();
   battery_state_service_unsubscribe();
+  connection_service_unsubscribe();
   window_destroy(s_window);
 }
 

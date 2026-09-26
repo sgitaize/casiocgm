@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CasioTime2 Config</title>
+<style>
+  :root { --navy:#000055; --red:#ff0000; --blue:#0055ff; --yellow:#ffff00; --lcd:#fff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #000; color: #fff;
+         font: 16px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 14px 16px 6px; display: flex; justify-content: space-between;
+           font-weight: 700; letter-spacing: .08em; }
+  header .two { color: var(--blue); }
+  main { margin: 0 10px 16px; border: 4px solid var(--red); border-radius: 14px; padding: 12px; }
+  h2 { margin: 18px 0 8px; color: var(--yellow); font-size: 14px; letter-spacing: .1em;
+       text-transform: uppercase; }
+  h2:first-child { margin-top: 4px; }
+  .panel { background: var(--lcd); color: var(--navy); border-radius: 8px; padding: 12px; }
+  label { display: block; margin: 0 0 12px; font-weight: 600; }
+  label:last-child { margin-bottom: 0; }
+  input[type=url], input[type=text], input[type=number] {
+    display: block; width: 100%; margin-top: 4px; padding: 9px 10px; font-size: 16px;
+    border: 2px solid var(--navy); border-radius: 6px; color: var(--navy); background: #fff; }
+  .row { display: flex; gap: 10px; }
+  .row label { flex: 1; }
+  .check { display: flex; align-items: center; gap: 10px; font-weight: 500; }
+  .check input { width: 22px; height: 22px; flex: none; accent-color: var(--navy); }
+  .seg { display: flex; border: 2px solid var(--navy); border-radius: 6px; overflow: hidden; margin-top: 4px; }
+  .seg label { flex: 1; margin: 0; text-align: center; }
+  .seg input { display: none; }
+  .seg span { display: block; padding: 8px; cursor: pointer; }
+  .seg input:checked + span { background: var(--navy); color: #fff; }
+  .hint { font-size: 13px; font-weight: 400; opacity: .75; margin: -6px 0 12px; }
+  .buttons { display: flex; gap: 10px; margin-top: 18px; }
+  button { flex: 1; padding: 13px; font-size: 16px; font-weight: 700; border-radius: 8px;
+           border: 0; cursor: pointer; }
+  #save { background: var(--yellow); color: #000; }
+  #cancel { background: #333; color: #fff; }
+  footer { text-align: center; color: var(--yellow); font-weight: 700; letter-spacing: .1em;
+           padding-bottom: 18px; font-size: 13px; }
+</style>
+</head>
+<body>
+<header><span>QUARTZ</span><span>TIME <span class="two">2</span></span></header>
+<main>
+  <h2 data-i18n="nightscout">Nightscout</h2>
+  <div class="panel">
+    <label><span data-i18n="url">Nightscout URL</span>
+      <input type="url" id="bgUrl" placeholder="https://my-nightscout.example.com" autocomplete="off" spellcheck="false"></label>
+    <label><span data-i18n="token">Access token (optional)</span>
+      <input type="text" id="authToken" placeholder="pebble-abc123" autocomplete="off" spellcheck="false"></label>
+    <label><span data-i18n="unit">Unit</span>
+      <div class="seg">
+        <label><input type="radio" name="bgUnit" value="mgdl" checked><span>mg/dL</span></label>
+        <label><input type="radio" name="bgUnit" value="mmol"><span>mmol/L</span></label>
+      </div></label>
+    <div class="row">
+      <label><span data-i18n="low">Low</span> <input type="number" id="low" step="any" inputmode="decimal"></label>
+      <label><span data-i18n="high">High</span> <input type="number" id="high" step="any" inputmode="decimal"></label>
+    </div>
+  </div>
+
+  <h2 data-i18n="fetch">Update</h2>
+  <div class="panel">
+    <label><span data-i18n="interval">Sensor interval (min)</span>
+      <input type="number" id="bgFetchIntervalMin" min="1" max="180" inputmode="numeric"></label>
+    <p class="hint" data-i18n="intervalHint">A reading counts as old (OLDBG) after twice this interval.</p>
+    <label class="check"><input type="checkbox" id="syncBgWithInterval">
+      <span data-i18n="sync">Sync with sensor (timestamp + interval + 30 s)</span></label>
+    <label id="manualWrap"><span data-i18n="manual">Fetch interval (min)</span>
+      <input type="number" id="bgManualIntervalMin" min="1" max="180" inputmode="numeric"></label>
+  </div>
+
+  <h2 data-i18n="alerts">Alerts</h2>
+  <div class="panel">
+    <label class="check"><input type="checkbox" id="vibeOnLow">
+      <span data-i18n="vibeLow">Vibrate when low (3 pulses)</span></label>
+    <label class="check"><input type="checkbox" id="vibeOnHigh">
+      <span data-i18n="vibeHigh">Vibrate when high (2 pulses)</span></label>
+  </div>
+
+  <h2 data-i18n="display">Display</h2>
+  <div class="panel">
+    <label class="check"><input type="checkbox" id="showSeconds">
+      <span data-i18n="seconds">Show seconds</span></label>
+  </div>
+
+  <div class="buttons">
+    <button id="cancel" type="button" data-i18n="cancel">Cancel</button>
+    <button id="save" type="button" data-i18n="save">Save</button>
+  </div>
+</main>
+<footer>CGM MONITOR</footer>
+
+<script>
+(function () {
+  'use strict';
+  var DE = {
+    nightscout: 'Nightscout', url: 'Nightscout-URL', token: 'Access-Token (optional)',
+    unit: 'Einheit', low: 'Niedrig', high: 'Hoch', fetch: 'Aktualisierung',
+    interval: 'Sensor-Intervall (Min.)',
+    intervalHint: 'Ein Wert gilt nach dem doppelten Intervall als alt (OLDBG).',
+    sync: 'Mit Sensor synchronisieren (Zeitstempel + Intervall + 30 s)',
+    manual: 'Abrufintervall (Min.)', alerts: 'Alarme',
+    vibeLow: 'Vibrieren bei niedrigem Wert (3 Impulse)',
+    vibeHigh: 'Vibrieren bei hohem Wert (2 Impulse)',
+    display: 'Anzeige', seconds: 'Sekunden anzeigen', cancel: 'Abbrechen', save: 'Speichern'
+  };
+
+  var DEFAULTS = {
+    bgUrl: '', authToken: '', bgUnit: 'mgdl', low: 80, high: 180,
+    bgFetchIntervalMin: 5, syncBgWithInterval: true, bgManualIntervalMin: 5,
+    vibeOnLow: false, vibeOnHigh: false, showSeconds: true
+  };
+
+  function $(id) { return document.getElementById(id); }
+
+  // pypkjs/emulator appends ?return_to=… to the URL (possibly after the
+  // fragment), so parse parameters from the whole href.
+  function param(name) {
+    var m = new RegExp('[?&#]' + name + '=([^&#?]*)').exec(window.location.href);
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+
+  function loadCfg() {
+    var cfg = {};
+    try { cfg = JSON.parse(param('cfg') || '{}') || {}; } catch (e) { cfg = {}; }
+    var out = {};
+    for (var k in DEFAULTS) out[k] = (cfg[k] !== undefined && cfg[k] !== null) ? cfg[k] : DEFAULTS[k];
+    return out;
+  }
+
+  function unit() { return document.querySelector('input[name=bgUnit]:checked').value; }
+
+  function fmt(v, u) { return u === 'mmol' ? (Math.round(v * 10) / 10).toFixed(1) : String(Math.round(v)); }
+
+  // Convert thresholds when the unit is switched
+  function onUnitChange(prev, next) {
+    if (prev === next) return;
+    ['low', 'high'].forEach(function (id) {
+      var v = parseFloat($(id).value);
+      if (!isFinite(v)) return;
+      $(id).value = fmt(next === 'mmol' ? v / 18 : v * 18, next);
+    });
+  }
+
+  function updateManual() { $('manualWrap').style.display = $('syncBgWithInterval').checked ? 'none' : ''; }
+
+  function init() {
+    if ((navigator.language || '').toLowerCase().indexOf('de') === 0) {
+      document.documentElement.lang = 'de';
+      [].forEach.call(document.querySelectorAll('[data-i18n]'), function (el) {
+        var t = DE[el.getAttribute('data-i18n')];
+        if (t) el.textContent = t;
+      });
+    }
+    var cfg = loadCfg();
+    $('bgUrl').value = cfg.bgUrl || '';
+    $('authToken').value = cfg.authToken || '';
+    var u = cfg.bgUnit === 'mmol' ? 'mmol' : 'mgdl';
+    document.querySelector('input[name=bgUnit][value=' + u + ']').checked = true;
+    $('low').value = fmt(parseFloat(cfg.low), u);
+    $('high').value = fmt(parseFloat(cfg.high), u);
+    $('bgFetchIntervalMin').value = parseInt(cfg.bgFetchIntervalMin, 10) || 5;
+    $('syncBgWithInterval').checked = cfg.syncBgWithInterval !== false;
+    $('bgManualIntervalMin').value = parseInt(cfg.bgManualIntervalMin, 10) || 5;
+    $('vibeOnLow').checked = !!cfg.vibeOnLow;
+    $('vibeOnHigh').checked = !!cfg.vibeOnHigh;
+    $('showSeconds').checked = cfg.showSeconds !== false;
+    updateManual();
+
+    var cur = u;
+    [].forEach.call(document.querySelectorAll('input[name=bgUnit]'), function (r) {
+      r.addEventListener('change', function () { var n = unit(); onUnitChange(cur, n); cur = n; });
+    });
+    $('syncBgWithInterval').addEventListener('change', updateManual);
+    $('save').addEventListener('click', save);
+    $('cancel').addEventListener('click', function () { close('CANCELLED'); });
+  }
+
+  function close(payload) {
+    var returnTo = param('return_to') || 'pebblejs://close#';
+    window.location.href = returnTo + payload;
+  }
+
+  function clampInt(v, lo, hi, def) {
+    var n = parseInt(v, 10);
+    if (!isFinite(n)) return def;
+    return Math.min(hi, Math.max(lo, n));
+  }
+
+  function save() {
+    var u = unit();
+    var cfg = {
+      bgUrl: $('bgUrl').value.trim() || null,
+      authToken: $('authToken').value.trim() || null,
+      bgUnit: u,
+      low: parseFloat($('low').value) || (u === 'mmol' ? 4.4 : 80),
+      high: parseFloat($('high').value) || (u === 'mmol' ? 10.0 : 180),
+      bgFetchIntervalMin: clampInt($('bgFetchIntervalMin').value, 1, 180, 5),
+      syncBgWithInterval: $('syncBgWithInterval').checked,
+      bgManualIntervalMin: clampInt($('bgManualIntervalMin').value, 1, 180, 5),
+      vibeOnLow: $('vibeOnLow').checked,
+      vibeOnHigh: $('vibeOnHigh').checked,
+      showSeconds: $('showSeconds').checked
+    };
+    close(encodeURIComponent(JSON.stringify(cfg)));
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

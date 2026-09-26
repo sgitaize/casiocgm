@@ -1,7 +1,7 @@
 {
   "name": "casiotime2",
   "author": "simon",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "keywords": [
     "pebble-app"
   ],
@@ -78,7 +78,10 @@
       "BG_THRESH_HIGH": 7,
       "BG_TIMEOUT_MIN": 8,
       "REQUEST_BG": 9,
-      "SHOW_SECONDS": 10
+      "SHOW_SECONDS": 10,
+      "BG_FETCH_INTERVAL_MIN": 11,
+      "VIBE_ON_LOW": 12,
+      "VIBE_ON_HIGH": 13
     }
   }
 }

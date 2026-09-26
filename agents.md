@@ -17,28 +17,52 @@
   DOWN►
 - Yellow "E-PAPER DISPLAY" banner
 
-## CGM (ported from github.com/sgitaize/Nightscout-supercgm)
+## CGM (ported from github.com/sgitaize/Nightscout-supercgm, v1.1)
 
 - JS fetches `<bgUrl>/pebble` (token appended URL-encoded; `/pebble`
   already in URL is respected). Parser handles `bgs[0]`, arrays and flat
-  objects.
+  objects (same as supercgm).
 - Unit encoding: mg/dL as int, **mmol as value×10** — thresholds use the
-  same encoding, so C compares without conversion. mmol renders as "5,6".
+  same encoding (supercgm: `low*10` for mmol), C compares without
+  conversion. mmol renders as "5,6". Old mmol configs with mg/dL-looking
+  thresholds (>30) are migrated.
 - Status enum OK/NO_DATA/NO_CONN/OLD; comp box shows NOCON / NO-BG / OLDBG.
-- Watch ages the reading locally via BG_TIMESTAMP on every redraw (OLD
-  appears even without new messages).
+  NO_DATA/NO_CONN clear sgv/delta/trend on the watch, OLD keeps the value.
+- **Staleness = 2x sensor interval (min 5 min)** in JS *and* C
+  (`BG_FETCH_INTERVAL_MIN`); the watch ages the reading locally via
+  BG_TIMESTAMP on every redraw. `BG_TIMEOUT_MIN` is no longer used.
+- Colors: fresh → red if sgv < low, amber if sgv > high, else navy;
+  stale/error → grey. Trend icon only on fresh readings.
+- Delta: "+2" / "-0,3" / "+-0" (zero), "--" unknown.
+- Vibration alerts (optional, `VIBE_ON_LOW/HIGH`): low 3 pulses, high 2,
+  10-min cooldown per direction. Phone disconnect → NOCON + short pulse.
 - Scheduling: next fetch = reading ts + sensor interval + 30 s, using
-  Nightscout **server time** (`status[0].now`) to avoid clock skew;
-  15 s fast-poll when overdue, clamp to manual interval.
-- Config page: reuses `http://casiocgm.aize-it.de/config/`; JS accepts both
-  supercgm-style (`bgUrl`) and casiocgm-style (`nsUrl`) payload fields.
+  Nightscout **server time** (`status[0].now`); min 15 s, clamp to manual
+  interval. Unlike supercgm, HTTP errors keep polling.
+- Deliberately NOT ported: supercgm's trend matching via `strstr` (maps
+  "^>" to up and ">v" to down) — exact `strcmp` mapping kept here.
+- AppMessages are queued in JS (one in flight, 3 tries) to avoid
+  APP_MSG_BUSY when config and BG are sent back to back.
 
-## AppMessage keys (hardcoded in BOTH main.c and index.js — keep in sync)
+## Config page (GitHub Pages)
+
+- Source: `docs/config/index.html` (Pages: branch `main`, folder `/docs`)
+  → https://sgitaize.github.io/casiocgm/config/
+- Current config is passed as `#cfg=<json>` in the URL **fragment** (token
+  never reaches the web server); `return_to` (emulator) is parsed from the
+  whole href. Payload uses supercgm field names (bgUrl, authToken, bgUnit,
+  low, high, bgFetchIntervalMin, syncBgWithInterval, bgManualIntervalMin,
+  vibeOnLow, vibeOnHigh, showSeconds); JS still accepts legacy nsUrl/...
+- Language: German if the browser locale starts with `de`, else English.
+
+## AppMessage keys (package.json `messageKeys`; C uses MESSAGE_KEY_*, JS names)
 
 0 BG_STATUS · 1 BG_SGV · 2 BG_TIMESTAMP · 3 BG_TREND ("^^","^","^>","-",
-">v","v","vv") · 4 BG_DELTA (-9999 = none) · 5 BG_UNIT · 6/7 BG_THRESH_LOW/
-HIGH · 8 BG_TIMEOUT_MIN · 9 REQUEST_BG (reserved) · 10 SHOW_SECONDS
-(1=default; 0 → time centered full-width, tick drops to MINUTE_UNIT)
+">v","v","vv", "" unknown) · 4 BG_DELTA (-9999 = none) · 5 BG_UNIT ·
+6/7 BG_THRESH_LOW/HIGH · 8 BG_TIMEOUT_MIN (unused) · 9 REQUEST_BG
+(reserved) · 10 SHOW_SECONDS (1=default; 0 → time centered full-width,
+tick drops to MINUTE_UNIT) · 11 BG_FETCH_INTERVAL_MIN · 12 VIBE_ON_LOW ·
+13 VIBE_ON_HIGH. After adding keys: `pebble clean && pebble build`.
 
 ## Font gotchas (learned the hard way)
 
@@ -55,7 +79,7 @@ HIGH · 8 BG_TIMEOUT_MIN · 9 REQUEST_BG (reserved) · 10 SHOW_SECONDS
 ## Build & test
 
 ```bash
-pebble build            # SDK 4.9, target emery
+pebble build            # SDK 4.33.1 (pebble-tool 5), target emery
 pebble install --emulator emery
 pebble screenshot --emulator emery out.png
 ```
