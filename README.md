@@ -1,6 +1,10 @@
 # CasioCGM
 
-A Pebble watchface styled after the classic **Casio G-Shock digital watch**, with real-time **Nightscout CGM** blood glucose integration.
+A retro Casio-style LCD watchface for the **Pebble Time 2**, with real-time **Nightscout CGM** blood glucose integration.
+
+> As a diabetic you want a cool watchface too — not just a plain number on a screen. That is why CasioCGM exists.
+
+Available in the [Pebble Appstore](https://apps.rePebble.com/58fcfcc22c37487f815520db).
 
 ![CasioCGM Screenshot](resources/screenshots/casiocgm-v2.2.1.png)
 
@@ -9,13 +13,13 @@ A Pebble watchface styled after the classic **Casio G-Shock digital watch**, wit
 ## Features
 
 ### Display
-- **Casio G-Shock retro design** — black background, thin red tapered separator bands, thick double-bordered LCD frame with rounded corners
-- **DSEG14 Classic Bold LCD digits** — authentic 7/14-segment font on emery (Pebble Time 2); LECO fallback on other color platforms. Ghost-segment effect on all digits.
-- **Ghost segments** — unlit LCD segments rendered in a configurable gray before the real value, simulating a real LCD
+- **Casio TIME 2 retro design** — black case, red ring, white LCD frame, yellow "pebble" and banner, button labels like the original
+- **DSEG14 Classic LCD digits** — authentic segment font, ghost-segment effect on all digits
+- **Ghost segments** — unlit LCD segments in a configurable colour (default lavender), simulating a real LCD
 
 ### Time & Date
-- **Large time display** — DSEG14 52 px on emery (full-width); LECO_38 + seconds column on basalt/chalk
-- **Seconds column** — HH:MM + seconds (top) + AM/PM + CGM trend arrow (bottom); can be hidden via config (non-emery only)
+- **Large time display** — DSEG14 48 px, centred
+- **Seconds (optional)** — HH:MM 38 px plus small seconds in the bottom-right corner, like the original
 - **Date** — DD-MM or MM-DD, centered left of the complication box, vertically aligned with it
 
 ### Complication box (top-right)
@@ -35,8 +39,8 @@ Six selectable slots — shown permanently; shake cycles to the secondary slot:
 - Useful for a quick glance at CGM delta, steps, etc. while keeping the primary slot as your default
 
 ### Info strip
-- **Battery bar** — 6-segment fill bar, live via `battery_state_service_subscribe`
-- **Weekday row** — S M T W T F S (or German S M D M D F S); today highlighted with filled pill
+- **Battery bar** — BAT label with 10 segments
+- **Weekday row** — 7 squares (today filled) with S M T W T F S (or German S M D M D F S) below
 
 ### CGM integration
 - Fetches **Nightscout `/pebble`** endpoint every 5 minutes via the Pebble phone app
@@ -142,6 +146,15 @@ pebble clean && pebble build
 If you find CasioCGM useful, a small donation is always appreciated!
 
 [![Donate via PayPal](https://img.shields.io/badge/Donate-PayPal-blue?logo=paypal)](https://paypal.me/simongutjahr)
+
+---
+
+## Motivation & Credits
+
+- **Why:** as a diabetic you want a cool watchface too. CasioCGM combines a retro Casio look with live Nightscout CGM data.
+- **Design inspired by** [*Quartz by Dalpek*](https://apps.repebble.com/quartz-by-dalpek_31cfe29ecd814df4b5ca8bb4) — thanks for the great retro LCD design! (No code was taken; the watchface is written from scratch.)
+- **CGM logic** ported from [Nightscout-supercgm](https://github.com/sgitaize/Nightscout-supercgm).
+- **~95 % vibe coded** with [Claude Code](https://claude.com/claude-code).
 
 ---
 

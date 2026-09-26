@@ -1,4 +1,4 @@
-Casio-style LCD watchface for Pebble Time 2 with live Nightscout CGM (blood glucose).
+Casio-style LCD watchface for Pebble Time 2 with live Nightscout CGM (blood glucose). As a diabetic you want a cool watchface too – that's why CasioCGM exists.
 
 - Glucose value with trend arrow in the classic 5-digit box, coloured by your low/high thresholds (mg/dL or mmol/L)
 - Smart sync: fetches right after each new sensor reading (reading time + interval + 30 s, Nightscout server time) – no waiting minutes for a fresh value
@@ -9,3 +9,5 @@ Casio-style LCD watchface for Pebble Time 2 with live Nightscout CGM (blood gluc
 - Configuration page with live preview
 
 Open source: https://github.com/sgitaize/casiocgm
+Design inspired by Quartz by Dalpek: https://apps.repebble.com/quartz-by-dalpek_31cfe29ecd814df4b5ca8bb4
+~95 % vibe coded with Claude Code.
