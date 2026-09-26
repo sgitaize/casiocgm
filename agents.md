@@ -170,6 +170,18 @@ flips to OLDBG even if the phone never sends another message.
 Synced mode (default): next fetch = `reading_ts + sensor_interval + 30 s`,
 using Nightscout server time (`status[0].now`) as reference to avoid phone
 clock skew. If the reading is already due, poll every 15 s (supercgm).
+
+**Learned upload lag (v2.3, battery):** many uploaders/bridges put readings
+into Nightscout minutes late (measured live: 10–30 s, then 190–240 s). pkjs
+learns that lag (`localStorage casiocgm_upload_lag`) and plans the fetch at
+reading + interval + max(30 s, lag + 10 s). A new reading found between two
+fetches gives the lag window: previous fetch ≤ 20 s ago → exact sample
+(raise at once, lower via EMA); later than learned → raise to the window
+middle; otherwise upper bound → min(). If the learned time is ≥ 1 min after
++30 s, +30 s is probed once per reading so a faster uploader is noticed at
+once. Overdue > 2 min (sensor gap) → poll every 60 s instead of 15 s.
+Simulation (`test/sync_sim2.js`): slow uploader 153 → 28 fetches/h, fast
+uploader unchanged (12/h). Live check: `test/live_monitor.js <ns-url> <min>`.
 Errors send `NO_CONN`/`NO_DATA` to the watch and retry after
 min(fallback, 1 min) — also after HTTP errors (supercgm stops there).
 Parser (supercgm): `/pebble` `bgs[0]`, plain arrays and flat objects;

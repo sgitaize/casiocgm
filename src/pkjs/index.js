@@ -167,17 +167,54 @@ function sendConfig() {
 }
 
 // ── Smart CGM scheduling ──────────────────────────────────────────────────
-// Schedule the next fetchNightscout() call.
-// lastBgTsSec: Unix timestamp (seconds) of the last CGM reading, or 0/null.
+// Base logic from supercgm: next fetch = lastReading + sensor interval +
+// offset, measured against Nightscout server time (status[0].now) to avoid
+// phone clock skew.
 //
-// When syncBgWithInterval=true (default):
-//   next fetch = lastReading + bgFetchIntervalMin*60 + 30 s
-//   The +30 s buffer ensures Nightscout has received and stored the reading.
-//   Clamped to [15 s, 3× manual interval] to handle bad timestamps.
-// When syncBgWithInterval=false:
-//   next fetch = now + bgManualIntervalMin
-// serverNowSec: Nightscout server time (status[0].now) — using it instead of
-// the phone clock avoids drift/skew between phone and NS server.
+// Battery extension (learned upload lag): many uploaders/bridges put a
+// reading into Nightscout minutes after it was measured. Fetching at the
+// fixed +30 s then means ~10 extra 15 s polls per reading. So the upload lag
+// is learned and the fetch is planned at reading + interval + lag + 10 s:
+//   - a new reading appeared between the previous and this fetch:
+//     previous fetch ≤ 20 s ago → exact sample (now - reading time):
+//     increases taken at once, decreases smoothed (EMA 50 %);
+//     previous fetch longer ago but already later than the learned lag →
+//     raise to the middle of that window; otherwise only an upper bound →
+//     lag = min(lag, sample)
+//   - if the learned fetch is ≥ 1 min after the supercgm time (+30 s), that
+//     time is probed once per reading; a hit there means the uploader is
+//     fast again (lag drops at once)
+//   - overdue: poll every 15 s, after 2 min overdue (sensor gap/warm-up)
+//     only every 60 s
+var LAG_KEY        = 'casiocgm_upload_lag';
+var lagSec         = Math.max(0, parseInt(localStorage.getItem(LAG_KEY), 10) || 0);
+var lastSeenTsSec  = 0;      // reading timestamp of the previous fetch
+var prevFetchNow   = 0;      // server time of the previous fetch
+var prevMissed     = false;  // previous fetch returned no newer reading
+
+function learnUploadLag(bgTsSec, serverNowSec, sensorSec) {
+  if (lastSeenTsSec && bgTsSec > lastSeenTsSec) {
+    // the reading appeared in (previous fetch, this fetch]
+    var sample = Math.max(0, serverNowSec - bgTsSec);            // upper bound
+    var lower  = prevMissed ? prevFetchNow - bgTsSec : -1;       // lower bound
+    if (prevMissed && serverNowSec - prevFetchNow <= 20) {
+      lagSec = sample > lagSec ? sample : Math.round((lagSec + sample) / 2);
+    } else if (lower > lagSec) {
+      lagSec = Math.round((lower + sample) / 2);  // later than learned: raise
+                                                  // to the middle of the window
+    } else {
+      lagSec = Math.min(lagSec, sample);
+    }
+    lagSec = Math.min(lagSec, sensorSec * 2);
+    try { localStorage.setItem(LAG_KEY, String(lagSec)); } catch (e) {}
+  }
+  prevMissed = (bgTsSec === lastSeenTsSec);
+  lastSeenTsSec = bgTsSec;
+  prevFetchNow = serverNowSec;
+}
+
+// lastBgTsSec: Unix timestamp (seconds) of the last CGM reading, or 0/null.
+// serverNowSec: Nightscout server time of that response.
 function planNextBGFetch(lastBgTsSec, serverNowSec) {
   if (fetchTimer) { clearTimeout(fetchTimer); fetchTimer = null; }
 
@@ -197,17 +234,29 @@ function planNextBGFetch(lastBgTsSec, serverNowSec) {
   }
 
   var sensorMin = Math.max(1, parseInt(config.bgFetchIntervalMin || configDefaults.bgFetchIntervalMin, 10));
-  var sensorMs  = sensorMin * 60 * 1000;
-  // Target: lastReading + sensor interval + 30 s overhead (supercgm issue #14)
-  var refNowMs  = (serverNowSec && isFinite(serverNowSec) && serverNowSec > 0)
-                  ? serverNowSec * 1000 : Date.now();
-  var targetMs  = lastBgTsSec * 1000 + sensorMs + 30000;
-  var delay     = targetMs - refNowMs;
+  var sensorSec = sensorMin * 60;
+  var nowSec    = (serverNowSec && isFinite(serverNowSec) && serverNowSec > 0)
+                  ? serverNowSec : Math.floor(Date.now() / 1000);
+  learnUploadLag(lastBgTsSec, nowSec, sensorSec);
 
-  if (delay < 15000) delay = 15000;  // overdue: poll every 15 s (supercgm)
+  // supercgm: +30 s; with a learned upload lag: lag + 10 s margin
+  var offsetSec = Math.max(30, lagSec + 10);
+  var dueSec    = lastBgTsSec + sensorSec + offsetSec;
+  var probeSec  = lastBgTsSec + sensorSec + 30;
+  var delay     = (dueSec - nowSec) * 1000;
+  // learned fetch ≥ 1 min after the supercgm time: probe that time once
+  // per reading, so a faster uploader is noticed right away
+  if (dueSec - probeSec >= 60 && probeSec > nowSec + 5) {
+    delay = (probeSec - nowSec) * 1000;
+  }
+  if (delay < 15000) {
+    // overdue: poll fast at first, slow down in longer gaps (battery)
+    delay = (nowSec - dueSec > 120) ? 60000 : 15000;
+  }
   if (delay > manualMs * 3) delay = manualMs;  // clamp if ts looks wrong (future)
 
-  console.log('[CasioCGM] planNextBGFetch: synced, next in ' + Math.round(delay / 1000) + ' s');
+  console.log('[CasioCGM] planNextBGFetch: synced, lag ' + lagSec + ' s, next in ' +
+              Math.round(delay / 1000) + ' s');
   fetchTimer = setTimeout(fetchNightscout, delay);
 }
 
