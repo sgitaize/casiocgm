@@ -250,10 +250,6 @@
             <option value="1">mmol/L</option>
           </select>
         </div>
-        <div class="field">
-          <label data-en="Stale after (min)" data-de="Veraltet nach (min)">Stale after (min)</label>
-          <input type="number" id="nsStaleMin" value="10" min="1" max="60">
-        </div>
       </div>
       <div class="row2">
         <div class="field">
@@ -267,6 +263,23 @@
           <p class="hint" data-en="In the selected unit (e.g. 70 or 3.9)." data-de="In der gewählten Einheit (z.B. 70 oder 3,9).">In the selected unit.</p>
         </div>
       </div>
+      <div class="row2">
+        <div class="field">
+          <label data-en="Vibrate when low" data-de="Vibration bei Tief">Vibrate when low</label>
+          <select id="vibeOnLow">
+            <option value="0" data-en="Off" data-de="Aus">Off</option>
+            <option value="1" data-en="On (3 pulses)" data-de="An (3 Impulse)">On (3 pulses)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-en="Vibrate when high" data-de="Vibration bei Hoch">Vibrate when high</label>
+          <select id="vibeOnHigh">
+            <option value="0" data-en="Off" data-de="Aus">Off</option>
+            <option value="1" data-en="On (2 pulses)" data-de="An (2 Impulse)">On (2 pulses)</option>
+          </select>
+        </div>
+      </div>
+      <p class="hint" data-en="Alerts repeat at most every 10 minutes." data-de="Alarme wiederholen sich höchstens alle 10 Minuten.">Alerts repeat at most every 10 minutes.</p>
       <div class="field">
         <label data-en="Sync fetch to CGM timestamp" data-de="Abruf an CGM-Zeitstempel syncen">Sync to CGM timestamp</label>
         <select id="syncBgWithInterval">
@@ -279,7 +292,7 @@
         <div class="field">
           <label data-en="CGM interval (min)" data-de="CGM-Intervall (Min.)">CGM interval (min)</label>
           <input type="number" id="bgFetchIntervalMin" value="5" min="1" max="20">
-          <p class="hint" data-en="Sensor interval: 5 = Dexcom, 15 = Libre." data-de="Sensor-Intervall: 5 = Dexcom, 15 = Libre.">5 = Dexcom, 15 = Libre</p>
+          <p class="hint" data-en="Sensor interval: 5 = Dexcom, 15 = Libre. A reading counts as old (OLDBG) after twice this interval." data-de="Sensor-Intervall: 5 = Dexcom, 15 = Libre. Ein Wert gilt nach dem doppelten Intervall als alt (OLDBG).">5 = Dexcom, 15 = Libre</p>
         </div>
         <div class="field">
           <label data-en="Fallback interval (min)" data-de="Ersatz-Intervall (Min.)">Fallback (min)</label>
@@ -1087,11 +1100,25 @@ function drawPreview() {
 }
 
 // ── Load config from Pebble URL param ─────────────────────────────────────
+// The watch passes the current config in the URL fragment (#config=…) so the
+// Nightscout token never reaches the web server; ?config= still works. The
+// emulator appends ?return_to=… (possibly after the fragment), so parameters
+// are parsed from the whole href.
+function urlParam(name) {
+  var m = new RegExp('[?&#]' + name + '=([^&#?]*)').exec(window.location.href);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function closeWith(payload) {
+  document.location = (urlParam('return_to') || 'pebblejs://close#') + payload;
+}
+
 function loadConfig() {
-  var raw = new URLSearchParams(window.location.search).get('config');
+  var raw = urlParam('config');
   if (!raw) return;
   try {
-    var cfg = JSON.parse(decodeURIComponent(raw));
+    var cfg;
+    try { cfg = JSON.parse(raw); } catch (e) { cfg = JSON.parse(decodeURIComponent(raw)); }
     function setVal(id, v) {
       var el = document.getElementById(id);
       if (el && v !== undefined && v !== null) el.value = v;
@@ -1101,7 +1128,8 @@ function loadConfig() {
     setVal('nsUnits',       cfg.nsUnits);
     setVal('nsHigh',        cfg.nsHigh);
     setVal('nsLow',         cfg.nsLow);
-    setVal('nsStaleMin',    cfg.nsStaleMin);
+    setVal('vibeOnLow',     cfg.vibeOnLow  ? '1' : '0');
+    setVal('vibeOnHigh',    cfg.vibeOnHigh ? '1' : '0');
     if (cfg.syncBgWithInterval !== undefined)
       setVal('syncBgWithInterval', cfg.syncBgWithInterval ? '1' : '0');
     if (cfg.bgFetchIntervalMin)  setVal('bgFetchIntervalMin',  cfg.bgFetchIntervalMin);
@@ -1145,7 +1173,8 @@ function save() {
     nsUnits:       document.getElementById('nsUnits').value,
     nsHigh:        document.getElementById('nsHigh').value,
     nsLow:         document.getElementById('nsLow').value,
-    nsStaleMin:    document.getElementById('nsStaleMin').value,
+    vibeOnLow:     document.getElementById('vibeOnLow').value === '1',
+    vibeOnHigh:    document.getElementById('vibeOnHigh').value === '1',
     syncBgWithInterval: document.getElementById('syncBgWithInterval').value !== '0',
     bgFetchIntervalMin:  parseInt(document.getElementById('bgFetchIntervalMin').value)  || 5,
     bgManualIntervalMin: parseInt(document.getElementById('bgManualIntervalMin').value) || 5,
@@ -1176,10 +1205,10 @@ function save() {
     backlightEnabled:   parseInt(document.getElementById('backlightEnabled').value),
     colorBacklight:     document.getElementById('colorBacklight').value
   };
-  document.location = 'pebblejs://close#' + encodeURIComponent(JSON.stringify(cfg));
+  closeWith(encodeURIComponent(JSON.stringify(cfg)));
 }
 
-function cancel() { document.location = 'pebblejs://close#CANCELLED'; }
+function cancel() { closeWith('CANCELLED'); }
 
 // ── Wire up live preview on every input change ─────────────────────────────
 function bindPreviewUpdates() {

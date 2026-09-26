@@ -1,7 +1,7 @@
 {
   "name": "casiocgm",
   "author": "simon",
-  "version": "1.0.0",
+  "version": "2.1.0",
   "keywords": [
     "pebble-app"
   ],
@@ -26,23 +26,24 @@
       "media": [
         {
           "type": "font",
-          "name": "FONT_DSEG_TIME52",
+          "name": "FONT_DSEG_TIME48",
           "file": "fonts/DSEG14Classic-Bold.ttf",
           "characterRegex": "[0-9:. -]",
-          "size": 52
+          "size": 48
         },
         {
           "type": "font",
-          "name": "FONT_DSEG_TIME44",
+          "name": "FONT_DSEG_TIME38",
           "file": "fonts/DSEG14Classic-Bold.ttf",
           "characterRegex": "[0-9:]",
-          "size": 44
+          "size": 38
         },
         {
           "type": "font",
-          "name": "FONT_DSEG_DATE20",
+          "name": "FONT_DSEG_DATE14",
           "file": "fonts/DSEG14Classic-Bold.ttf",
-          "characterRegex": "[0-9. -]"
+          "characterRegex": "[0-9. -]",
+          "size": 14
         },
         {
           "type": "font",
@@ -102,6 +103,8 @@
       "CGM_BOX_ENABLED",
       "COLOR_CGM_BOX_BG",
       "GHOST_COMP_ENABLED",
+      "VIBE_ON_LOW",
+      "VIBE_ON_HIGH",
       "CGM_STATUS",
       "CGM_TS",
       "CGM_SGV",

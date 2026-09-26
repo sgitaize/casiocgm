@@ -19,9 +19,8 @@ casiocgm/
 │   │   └── main.c        – Watch-side C code (drawing, tick, health, AppMessage)
 │   └── pkjs/
 │       └── app.js        – Phone-side JS (Nightscout fetch, weather, config relay)
-├── config/
-│   └── index.html        – Hosted web config (EN/DE, live preview, all settings)
-├── deploy_ftp.sh         – FTP upload script for config/ → casiocgm.aize-it.de/config/
+├── docs/config/
+│   └── index.html        – Web config (EN/DE, live preview), GitHub Pages
 └── agents.md             – This file
 ```
 
@@ -58,7 +57,7 @@ Must be identical in both files.
 | KEY_NS_UNITS        | 2   | config→watch  | int    | 0=mg/dL, 1=mmol/L             |
 | KEY_NS_HIGH         | 3   | config→watch  | int    | High glucose threshold         |
 | KEY_NS_LOW          | 4   | config→watch  | int    | Low glucose threshold          |
-| KEY_NS_STALE_MIN    | 5   | config→watch  | int    | Minutes until "No Conn"        |
+| KEY_NS_STALE_MIN    | 5   | config→watch  | int    | Minutes until OLDBG = 2× sensor interval, min 5 (computed by pkjs) |
 | KEY_COLOR_BG        | 6   | config→watch  | int    | Background color (RGB24 int)   |
 | KEY_COLOR_FG        | 7   | config→watch  | int    | Foreground/text color          |
 | KEY_COLOR_ACCENT    | 8   | config→watch  | int    | Accent color (labels, dots)    |
@@ -90,7 +89,7 @@ Note: `NS_HIGH` / `NS_LOW` are entered in the display unit on the config page
 but **always sent to the watch in mg/dL** — the watch compares them against
 `CGM_SGV` (raw mg/dL), never against the display string.
 
-(Config keys 18–37: shake slot, weekday language, ghost/backlight/banner
+(Config keys 38/39: VIBE_ON_LOW / VIBE_ON_HIGH. Keys 18–37: shake slot, weekday language, ghost/backlight/banner
 colors, ghost-8s-in-comp-box toggle (37, issue #4) etc. — see the `#define`
 block at the top of `main.c`.)
 
@@ -147,9 +146,16 @@ the watch every redraw** via `cgm_status_text()`:
   `connection_service` when BT drops, with a short vibe; on reconnect the
   watch sends `REQUEST_BG` to trigger an instant fetch)
 - `NO_DATA` or sgv≤0 → "NO-BG" / "No BG"
-- status `OLD` **or** `now - s_cgm_ts > s_ns_stale_min` → "OLDBG" / "Old BG"
+- status `OLD` **or** `now - s_cgm_ts > s_ns_stale_min*60 s` → "OLDBG" / "Old BG"
+  (stale = 2× sensor interval, min. 5 min — same rule as supercgm)
   (value stays valid but is marked stale; the banner shows its age)
 - otherwise fresh → value + trend arrow, banner "CGM Active" + delta + age
+- Colours (supercgm): fresh → low colour if sgv < low, high colour if
+  sgv > high (strict), else OK colour; stale/error → dark grey.
+- NO_DATA / NO_CONN (also BT disconnect) clear value, delta and trend.
+- Optional vibration (VIBE_ON_LOW/HIGH): low 3 pulses, high 2 pulses,
+  10-min cooldown per direction, checked when a CGM_STATUS arrives.
+- Delta string: "+3" / "-0.2" / "+-0" (zero) / "--" (unknown).
 
 Because the age is derived from `s_cgm_ts` (not a static age int), the face
 flips to OLDBG even if the phone never sends another message.
@@ -157,9 +163,12 @@ flips to OLDBG even if the phone never sends another message.
 ### Fetch scheduling (pkjs)
 Synced mode (default): next fetch = `reading_ts + sensor_interval + 30 s`,
 using Nightscout server time (`status[0].now`) as reference to avoid phone
-clock skew. If the reading is already due, poll every 15 s; if it is older
-than 2 sensor intervals (sensor gap/warmup), back off to 1 min. Errors send
-`NO_CONN`/`NO_DATA` to the watch and retry after min(fallback, 1 min).
+clock skew. If the reading is already due, poll every 15 s (supercgm).
+Errors send `NO_CONN`/`NO_DATA` to the watch and retry after
+min(fallback, 1 min) — also after HTTP errors (supercgm stops there).
+Parser (supercgm): `/pebble` `bgs[0]`, plain arrays and flat objects;
+sgv/delta auto-detect mmol (< 40) vs mg/dL. AppMessages go through a queue
+(one in flight, 3 tries) so config + BG never collide (APP_MSG_BUSY).
 
 ---
 
@@ -173,42 +182,49 @@ Mapping in `app.js` `trendArrow()` function — maps Nightscout `direction` stri
 
 ## Nightscout API
 
-- Endpoint: `GET {nsUrl}/api/v1/entries/sgv.json?count=2[&token={nsToken}]`
-- Fetch interval: 5 minutes (phone side)
-- Fields used: `sgv`, `glucose`, `bgdelta` (fallback: delta between entries), `direction`, `date`
+- Endpoint: `GET {nsUrl}/pebble[?token={nsToken}]` (`/pebble` already in the URL is respected)
+- Fields used: `sgv`/`glucose`/`value`, `bgdelta`, `direction`/`trend`, `datetime`/`date`/`mills`, `status[0].now`
 - mmol/L conversion: `sgv / 18.0`
 
 ---
 
 ## Web Config
 
-- URL: `http://casiocgm.aize-it.de/config/`
-- Loaded with: `?config=<URLencoded JSON of current config>`
-- Returns via: `pebblejs://close#{URLencoded JSON}`
+- URL: `https://sgitaize.github.io/casiocgm/config/` (GitHub Pages, source
+  branch `legacy-casiocgm`, folder `/docs`)
+- Loaded with: `#config=<URLencoded JSON>` in the URL **fragment** (token never
+  reaches the server; `?config=` still works)
+- Returns via: `return_to` param if present (emulator), else
+  `pebblejs://close#{URLencoded JSON}`
 - Languages: English (default), German (toggle button top-right)
 - Sections: Nightscout, Complication, Labels, Date&Time, Colors
 - Live preview: Casio-style watch mockup updates in real-time
 
 ---
 
-## FTP Deploy
-
-Script: `deploy_ftp.sh`
-- Uploads `config/` directory to `casiocgm.aize-it.de/config/` via FTP
-- Credentials in seperate ftpconfig File
-- Run: `bash deploy_ftp.sh`
-
----
-
 ## Build
 
 ```bash
-pebble build          # builds all platforms
-pebble install        # install to paired watch
-pebble logs           # tail watch logs
+pebble build                      # SDK 4.33.1 (pebble-tool 5), target emery
+pebble install --emulator emery   # 60 s rule: longer = bug in the face
+pebble logs
 ```
 
-Requires Pebble SDK 3 (`pebble` CLI).
+### Firmware hang pitfalls (learned the hard way, v2.1)
+
+- **Never draw DSEG text that does not fit its box with
+  `GTextOverflowModeTrailingEllipsis`.** The DSEG fonts have no '…' glyph;
+  firmware 4.9 froze completely (emulator unresponsive, app log stopped in
+  the date draw). DSEG draws use `GTextOverflowModeFill` now, and font sizes
+  are chosen so everything fits: DSEG14 advance = 0.816 em per glyph
+  ("88:88"@48 ≈ 164 px, "88-88"@14 ≈ 57 px, "88:88"@38 ≈ 130 px).
+- **The trailing number in a font resource NAME wins over `size`** — keep
+  both in sync (FONT_DSEG_TIME48 / DATE14 / TIME38).
+- Persist: config is stored in 4 keys (numeric struct, URL, token, labels),
+  written only when changed — not ~35 single keys per config message.
+  v1.x per-key data is migrated on first start.
+- SDK 4.9 emulator + pebble-tool 5 is flaky (random "App install failed"
+  after 19 s even for trivial faces) — test on 4.33.1.
 
 ---
 

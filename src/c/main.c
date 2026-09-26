@@ -33,6 +33,8 @@
 #define KEY_CGM_BOX_ENABLED    35   // 1=show border box around CGM status (default), 0=hide
 #define KEY_COLOR_CGM_BOX_BG   36   // fill color for CGM status box
 #define KEY_GHOST_COMP_ENABLED 37   // 1=ghost 8s in comp box (default), 0=hide (issue #4)
+#define KEY_VIBE_ON_LOW        38   // 1=vibrate on low BG (3 pulses), 10 min cooldown
+#define KEY_VIBE_ON_HIGH       39   // 1=vibrate on high BG (2 pulses), 10 min cooldown
 #define KEY_CGM_VALUE          50
 #define KEY_CGM_DELTA       51
 #define KEY_CGM_TREND       52
@@ -102,6 +104,10 @@ static int  s_cgm_status      = CGM_STATUS_NO_CONN; // until first message arriv
 static time_t s_cgm_ts        = 0;   // reading timestamp; watch ages locally
 static int  s_cgm_sgv         = 0;   // raw mg/dL for range comparison
 static int  s_show_seconds    = 0;   // 1=small seconds next to HH:MM
+static int  s_vibe_on_low     = 0;
+static int  s_vibe_on_high    = 0;
+static time_t s_last_vibe_low_ts  = 0;
+static time_t s_last_vibe_high_ts = 0;
 
 static int  s_steps           = 0;
 static int  s_hr              = 0;
@@ -111,7 +117,7 @@ static int  s_batt_pct        = 100;
 
 // ── Custom fonts (loaded in window_load) ──────────────────────────────────
 static GFont s_font_d14_time = NULL;  // DSEG14 52px : time (no seconds)
-static GFont s_font_d14_time44 = NULL;// DSEG14 44px : time when seconds shown
+static GFont s_font_d14_time38 = NULL;// DSEG14 38px : time when seconds shown (fits next to the seconds)
 static GFont s_font_d7_date  = NULL;  // DSEG14 20px : date
 static GFont s_font_d7_comp  = NULL;  // DSEG14 Bold 22px : comp box real digits
 static GFont s_font_comp_reg = NULL;  // DSEG14 Regular 22px : comp box ghost digits
@@ -133,11 +139,19 @@ static int cgm_age_min(void) {
 
 // Returns NULL when a fresh value should be shown, otherwise the
 // DSEG-renderable status text for the comp box ("NOCON"/"NO-BG"/"OLDBG").
+// Stale rule mirrors supercgm: older than 2x the sensor interval (pkjs sends
+// that as NS_STALE_MIN, min. 5 min), compared in seconds.
+static bool cgm_is_stale(void) {
+  int stale_sec = s_ns_stale_min * 60;
+  if (stale_sec < 300) stale_sec = 300;
+  return s_cgm_status == CGM_STATUS_OLD ||
+         (int)(time(NULL) - s_cgm_ts) > stale_sec;
+}
+
 static const char *cgm_status_text(void) {
   if (s_cgm_status == CGM_STATUS_NO_CONN)               return "NOCON";
   if (s_cgm_status == CGM_STATUS_NO_DATA || s_cgm_sgv <= 0) return "NO-BG";
-  if (s_cgm_status == CGM_STATUS_OLD ||
-      cgm_age_min() > s_ns_stale_min)                    return "OLDBG";
+  if (cgm_is_stale())                                   return "OLDBG";
   return NULL;
 }
 
@@ -189,17 +203,19 @@ static void shake_str(char *buf, size_t len) {
 
 // Ghost segments behind real value – simulates unlit LCD segments.
 // Respects the GHOST_ENABLED config toggle.
+// DSEG text must never use TrailingEllipsis: the fonts have no '…' glyph and
+// firmware 4.9 hangs (watchdog / frozen emulator) when it has to ellipsize.
 static void lcd_text(GContext *ctx, const char *ghost, const char *real,
                      GFont font, GRect r, GColor gc, GColor rc,
                      GTextAlignment align) {
   if (s_ghost_enabled) {
     graphics_context_set_text_color(ctx, gc);
     graphics_draw_text(ctx, ghost, font, r,
-                       GTextOverflowModeTrailingEllipsis, align, NULL);
+                       GTextOverflowModeFill, align, NULL);
   }
   graphics_context_set_text_color(ctx, rc);
   graphics_draw_text(ctx, real, font, r,
-                     GTextOverflowModeTrailingEllipsis, align, NULL);
+                     GTextOverflowModeFill, align, NULL);
 }
 
 // Draw a small arrow (◄ or ►) using lines only
@@ -303,11 +319,12 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
 
   // Range comparison uses the raw mg/dL sgv; thresholds arrive in mg/dL too.
   bool cgm_fresh = cgm_is_fresh();
+  // supercgm: strict thresholds on fresh values, grey when stale / error
   GColor col_cgm = cgm_fresh
-      ? ( s_cgm_sgv >= s_ns_high ? color_from_int(s_color_cgm_high)
-        : s_cgm_sgv <= s_ns_low  ? color_from_int(s_color_cgm_low)
-                                 : color_from_int(s_color_cgm_ok) )
-      : color_from_int(s_color_cgm_low);
+      ? ( s_cgm_sgv > s_ns_high ? color_from_int(s_color_cgm_high)
+        : s_cgm_sgv < s_ns_low  ? color_from_int(s_color_cgm_low)
+                                : color_from_int(s_color_cgm_ok) )
+      : PBL_IF_COLOR_ELSE(GColorDarkGray, color_from_int(s_color_fg));
 
   // ── Fonts ─────────────────────────────────────────────────────────────
   GFont f_tiny    = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
@@ -506,7 +523,7 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   else                    snprintf(date_str, sizeof(date_str), "%02u-%02u", dm, dd);
 
   lcd_text(ctx, "88-88", date_str, f_date,
-           GRect(x_l, row_ty, date_w, render_h),
+           GRect(x_l, row_ty + (render_h_comp - 14) / 2 + 1, date_w, render_h),
            col_ghost, col_fg, GTextAlignmentCenter);
 
   // ── 8. Comp box ───────────────────────────────────────────────────────
@@ -544,11 +561,11 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     if (s_ghost_enabled && s_ghost_comp_enabled) {
       graphics_context_set_text_color(ctx, col_ghost);
       graphics_draw_text(ctx, "8888", f_comp_g, num_r,
-                         GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
+                         GTextOverflowModeFill, GTextAlignmentRight, NULL);
     }
     graphics_context_set_text_color(ctx, creal);
     graphics_draw_text(ctx, cstr, f_comp, num_r,
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
+                       GTextOverflowModeFill, GTextAlignmentRight, NULL);
     draw_trend_arrow(ctx, s_cgm_trend[0],
                      GRect(comp_x+SX(1)+num_w, row_ty, arw_w, render_h_comp),
                      creal);
@@ -558,21 +575,21 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     if (s_ghost_enabled && s_ghost_comp_enabled) {
       graphics_context_set_text_color(ctx, col_ghost);
       graphics_draw_text(ctx, "88888", f_comp_g, all_r,
-                         GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
+                         GTextOverflowModeFill, GTextAlignmentRight, NULL);
     }
     graphics_context_set_text_color(ctx, creal);
     graphics_draw_text(ctx, cstr, f_comp, all_r,
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
+                       GTextOverflowModeFill, GTextAlignmentRight, NULL);
   } else {
     GRect all_r = GRect(comp_x+SX(1), row_ty, comp_w-SX(2), render_h_comp);
     if (s_ghost_enabled && s_ghost_comp_enabled) {
       graphics_context_set_text_color(ctx, col_ghost);
       graphics_draw_text(ctx, "88888", f_comp_g, all_r,
-                         GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
+                         GTextOverflowModeFill, GTextAlignmentRight, NULL);
     }
     graphics_context_set_text_color(ctx, creal);
     graphics_draw_text(ctx, cstr, f_comp, all_r,
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
+                       GTextOverflowModeFill, GTextAlignmentRight, NULL);
   }
 
   // ── 9. Time HH:MM (DSEG14 52px) + optional small seconds + P (PM) ─────
@@ -589,9 +606,9 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     int th = y_info - tdy;
 
     if (s_show_seconds) {
-      // HH:MM in the smaller 44px font, left-aligned; small seconds sit in
+      // HH:MM in the smaller 38px font, left-aligned; small seconds sit in
       // the freed bottom-right corner, like the Casio original.
-      GFont f_time_s = s_font_d14_time44 ? s_font_d14_time44 : f_dseg_lg;
+      GFont f_time_s = s_font_d14_time38 ? s_font_d14_time38 : f_dseg_lg;
       int tdy2 = y_time + (y_info - y_time - SY(34)) / 2;
       if (tdy2 < y_time) tdy2 = y_time;
       lcd_text(ctx, "88:88", time_str, f_time_s,
@@ -825,9 +842,34 @@ static void request_bg_fetch(void) {
   }
 }
 
+// Vibrate on threshold breach, 10-minute cooldown per direction (supercgm)
+static void check_bg_alerts(void) {
+  if (s_cgm_status != CGM_STATUS_OK || s_cgm_sgv <= 0) return;
+  time_t now = time(NULL);
+  const int cooldown = 600;
+  if (s_vibe_on_low && s_cgm_sgv < s_ns_low) {
+    if ((now - s_last_vibe_low_ts) >= cooldown) {
+      s_last_vibe_low_ts = now;
+      static const uint32_t segs[] = {200, 100, 200, 100, 200};
+      VibePattern pat = { .durations = segs, .num_segments = ARRAY_LENGTH(segs) };
+      vibes_enqueue_custom_pattern(pat);
+    }
+  } else if (s_vibe_on_high && s_cgm_sgv > s_ns_high) {
+    if ((now - s_last_vibe_high_ts) >= cooldown) {
+      s_last_vibe_high_ts = now;
+      static const uint32_t segs[] = {200, 100, 200};
+      VibePattern pat = { .durations = segs, .num_segments = ARRAY_LENGTH(segs) };
+      vibes_enqueue_custom_pattern(pat);
+    }
+  }
+}
+
 static void app_connection_handler(bool connected) {
   if (!connected) {
     s_cgm_status = CGM_STATUS_NO_CONN;
+    s_cgm_sgv = 0;
+    s_cgm_delta[0] = '\0';
+    s_cgm_trend[0] = '\0';
     vibes_short_pulse();  // single buzz so user notices disconnect
   } else {
     request_bg_fetch();
@@ -862,6 +904,8 @@ static void update_tick_subscription(void) {
       tick_handler);
 }
 
+static void save_persist(void);
+
 // ── AppMessage ────────────────────────────────────────────────────────────
 static void inbox_received(DictionaryIterator *iter, void *context) {
   Tuple *t;
@@ -889,6 +933,7 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   GI(KEY_CGM_BOX_ENABLED,s_cgm_box_enabled);
   GI(KEY_COLOR_CGM_BOX_BG,s_color_cgm_box_bg);
   GI(KEY_GHOST_COMP_ENABLED,s_ghost_comp_enabled);
+  GI(KEY_VIBE_ON_LOW,s_vibe_on_low); GI(KEY_VIBE_ON_HIGH,s_vibe_on_high);
   {
     int prev_secs = s_show_seconds;
     GI(KEY_SHOW_SECONDS,s_show_seconds);
@@ -908,8 +953,10 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
     // For OLD the value is still valid (just stale) → keep it.
     if (s_cgm_status == CGM_STATUS_NO_DATA || s_cgm_status == CGM_STATUS_NO_CONN) {
       s_cgm_sgv = 0;
+      s_cgm_delta[0] = '\0';
       s_cgm_trend[0] = '\0';
     }
+    check_bg_alerts();
   }
   GI(KEY_STEPS,s_steps); GI(KEY_HR,s_hr);
   GI(KEY_WEATHER_TEMP,s_weather_temp); GS(KEY_WEATHER_ICON,s_weather_icon);
@@ -918,52 +965,108 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
 #undef GI
   // Persist only config messages (avoid flash wear on every 5-min CGM push);
   // config messages always carry KEY_COLOR_BG, data messages never do.
-  if (!dict_find(iter, KEY_COLOR_BG)) {
-    if (s_canvas) layer_mark_dirty(s_canvas);
-    return;
-  }
-  persist_write_string(KEY_NS_URL,s_ns_url);
-  persist_write_string(KEY_NS_TOKEN,s_ns_token);
-  persist_write_int(KEY_NS_UNITS,s_ns_units);
-  persist_write_int(KEY_NS_HIGH,s_ns_high);
-  persist_write_int(KEY_NS_LOW,s_ns_low);
-  persist_write_int(KEY_NS_STALE_MIN,s_ns_stale_min);
-  persist_write_int(KEY_COLOR_BG,s_color_bg);
-  persist_write_int(KEY_COLOR_FG,s_color_fg);
-  persist_write_int(KEY_COLOR_ACCENT,s_color_accent);
-  persist_write_int(KEY_COLOR_CGM_OK,s_color_cgm_ok);
-  persist_write_int(KEY_COLOR_CGM_HIGH,s_color_cgm_high);
-  persist_write_int(KEY_COLOR_CGM_LOW,s_color_cgm_low);
-  persist_write_int(KEY_COMPLICATION,s_complication);
-  persist_write_string(KEY_LABEL_TOP_LEFT,s_label_tl);
-  persist_write_string(KEY_LABEL_TOP_RIGHT,s_label_tr);
-  persist_write_string(KEY_LABEL_BOTTOM,s_label_bot);
-  persist_write_int(KEY_FIRST_WEEKDAY,s_first_weekday);
-  persist_write_int(KEY_DATE_FORMAT,s_date_format);
-  persist_write_int(KEY_SHAKE_2ND,s_shake_2nd);
-  persist_write_int(KEY_WDAY_LANG,s_wday_lang);
-  persist_write_int(KEY_COLOR_GHOST,s_color_ghost);
-  persist_write_int(KEY_COLOR_LABEL_TOP,s_color_label_top);
-  persist_write_int(KEY_GHOST_ENABLED,s_ghost_enabled);
-  persist_write_int(KEY_COLOR_CGM_BANNER,s_color_cgm_banner);
-  persist_write_int(KEY_COLOR_TIME2_BG,s_color_time2_bg);
-  persist_write_int(KEY_COLOR_CGM_INFO,s_color_cgm_info);
-  persist_write_int(KEY_BACKLIGHT_ENABLED,s_backlight_enabled);
-  persist_write_int(KEY_COLOR_BACKLIGHT,s_color_backlight);
-  persist_write_int(KEY_CGM_BOX_ENABLED,s_cgm_box_enabled);
-  persist_write_int(KEY_COLOR_CGM_BOX_BG,s_color_cgm_box_bg);
-  persist_write_int(KEY_GHOST_COMP_ENABLED,s_ghost_comp_enabled);
-  persist_write_int(KEY_SHOW_SECONDS,s_show_seconds);
+  if (dict_find(iter, KEY_COLOR_BG)) save_persist();
   if (s_canvas) layer_mark_dirty(s_canvas);
 }
 
-// ── Persist load ──────────────────────────────────────────────────────────
-static void load_persist(void) {
+// ── Persist ───────────────────────────────────────────────────────────────
+// Config is stored in 4 keys (numeric settings as one struct, like supercgm)
+// instead of ~35 single keys: writing that many keys on every config message
+// left the firmware hanging on the next app exit/reinstall (seen on the
+// emery emulator). PERSIST_DATA_MAX_LENGTH is 256 bytes, so strings get
+// their own keys. Old per-key data (v1.x) is migrated once on load.
+#define PKEY_CFG     100
+#define PKEY_URL     101
+#define PKEY_TOKEN   102
+#define PKEY_LABELS  103
+#define CFG_VERSION  1
+
+typedef struct {
+  int32_t version;
+  int32_t ns_units, ns_high, ns_low, ns_stale_min;
+  int32_t color_bg, color_fg, color_accent;
+  int32_t color_cgm_ok, color_cgm_high, color_cgm_low;
+  int32_t complication, first_weekday, date_format, shake_2nd, wday_lang;
+  int32_t color_ghost, color_label_top, ghost_enabled, ghost_comp_enabled;
+  int32_t color_cgm_banner, color_time2_bg, color_cgm_info;
+  int32_t backlight_enabled, color_backlight;
+  int32_t cgm_box_enabled, color_cgm_box_bg;
+  int32_t show_seconds, vibe_on_low, vibe_on_high;
+} PersistCfg;
+
+typedef struct {
+  char tl[32], tr[32], bot[32];
+} PersistLabels;
+
+static void cfg_to_struct(PersistCfg *c) {
+  memset(c, 0, sizeof(*c));
+  c->version = CFG_VERSION;
+  c->ns_units = s_ns_units; c->ns_high = s_ns_high; c->ns_low = s_ns_low;
+  c->ns_stale_min = s_ns_stale_min;
+  c->color_bg = s_color_bg; c->color_fg = s_color_fg; c->color_accent = s_color_accent;
+  c->color_cgm_ok = s_color_cgm_ok; c->color_cgm_high = s_color_cgm_high;
+  c->color_cgm_low = s_color_cgm_low;
+  c->complication = s_complication; c->first_weekday = s_first_weekday;
+  c->date_format = s_date_format; c->shake_2nd = s_shake_2nd; c->wday_lang = s_wday_lang;
+  c->color_ghost = s_color_ghost; c->color_label_top = s_color_label_top;
+  c->ghost_enabled = s_ghost_enabled; c->ghost_comp_enabled = s_ghost_comp_enabled;
+  c->color_cgm_banner = s_color_cgm_banner; c->color_time2_bg = s_color_time2_bg;
+  c->color_cgm_info = s_color_cgm_info;
+  c->backlight_enabled = s_backlight_enabled; c->color_backlight = s_color_backlight;
+  c->cgm_box_enabled = s_cgm_box_enabled; c->color_cgm_box_bg = s_color_cgm_box_bg;
+  c->show_seconds = s_show_seconds;
+  c->vibe_on_low = s_vibe_on_low; c->vibe_on_high = s_vibe_on_high;
+}
+
+static void cfg_from_struct(const PersistCfg *c) {
+  s_ns_units = c->ns_units; s_ns_high = c->ns_high; s_ns_low = c->ns_low;
+  s_ns_stale_min = c->ns_stale_min;
+  s_color_bg = c->color_bg; s_color_fg = c->color_fg; s_color_accent = c->color_accent;
+  s_color_cgm_ok = c->color_cgm_ok; s_color_cgm_high = c->color_cgm_high;
+  s_color_cgm_low = c->color_cgm_low;
+  s_complication = c->complication; s_first_weekday = c->first_weekday;
+  s_date_format = c->date_format; s_shake_2nd = c->shake_2nd; s_wday_lang = c->wday_lang;
+  s_color_ghost = c->color_ghost; s_color_label_top = c->color_label_top;
+  s_ghost_enabled = c->ghost_enabled; s_ghost_comp_enabled = c->ghost_comp_enabled;
+  s_color_cgm_banner = c->color_cgm_banner; s_color_time2_bg = c->color_time2_bg;
+  s_color_cgm_info = c->color_cgm_info;
+  s_backlight_enabled = c->backlight_enabled; s_color_backlight = c->color_backlight;
+  s_cgm_box_enabled = c->cgm_box_enabled; s_color_cgm_box_bg = c->color_cgm_box_bg;
+  s_show_seconds = c->show_seconds;
+  s_vibe_on_low = c->vibe_on_low; s_vibe_on_high = c->vibe_on_high;
+}
+
+// Write a key only when its content changed (saves flash writes)
+static void persist_data_if_changed(uint32_t key, const void *data, size_t len) {
+  static uint8_t buf[PERSIST_DATA_MAX_LENGTH];
+  if (persist_exists(key) && persist_get_size(key) == (int)len &&
+      persist_read_data(key, buf, len) == (int)len && memcmp(buf, data, len) == 0) {
+    return;
+  }
+  persist_write_data(key, data, len);
+}
+
+static void save_persist(void) {
+  PersistCfg c;
+  cfg_to_struct(&c);
+  persist_data_if_changed(PKEY_CFG, &c, sizeof(c));
+  persist_data_if_changed(PKEY_URL, s_ns_url, sizeof(s_ns_url));
+  persist_data_if_changed(PKEY_TOKEN, s_ns_token, sizeof(s_ns_token));
+  PersistLabels l;
+  memset(&l, 0, sizeof(l));
+  strncpy(l.tl, s_label_tl, sizeof(l.tl) - 1);
+  strncpy(l.tr, s_label_tr, sizeof(l.tr) - 1);
+  strncpy(l.bot, s_label_bot, sizeof(l.bot) - 1);
+  persist_data_if_changed(PKEY_LABELS, &l, sizeof(l));
+}
+
+// v1.x stored every setting under its AppMessage key
+static void load_persist_legacy(void) {
 #define LS(k,d) if(persist_exists(k)) persist_read_string(k,d,sizeof(d))
 #define LI(k,d) if(persist_exists(k)) d=persist_read_int(k)
   LS(KEY_NS_URL,s_ns_url); LS(KEY_NS_TOKEN,s_ns_token);
   LI(KEY_NS_UNITS,s_ns_units); LI(KEY_NS_HIGH,s_ns_high);
-  LI(KEY_NS_LOW,s_ns_low); LI(KEY_NS_STALE_MIN,s_ns_stale_min);
+  LI(KEY_NS_LOW,s_ns_low);
   LI(KEY_COLOR_BG,s_color_bg); LI(KEY_COLOR_FG,s_color_fg);
   LI(KEY_COLOR_ACCENT,s_color_accent); LI(KEY_COLOR_CGM_OK,s_color_cgm_ok);
   LI(KEY_COLOR_CGM_HIGH,s_color_cgm_high); LI(KEY_COLOR_CGM_LOW,s_color_cgm_low);
@@ -988,11 +1091,38 @@ static void load_persist(void) {
 #undef LI
 }
 
+static void load_persist(void) {
+  PersistCfg c;
+  if (persist_exists(PKEY_CFG) &&
+      persist_read_data(PKEY_CFG, &c, sizeof(c)) == (int)sizeof(c) &&
+      c.version == CFG_VERSION) {
+    cfg_from_struct(&c);
+    if (persist_exists(PKEY_URL))
+      persist_read_data(PKEY_URL, s_ns_url, sizeof(s_ns_url));
+    if (persist_exists(PKEY_TOKEN))
+      persist_read_data(PKEY_TOKEN, s_ns_token, sizeof(s_ns_token));
+    PersistLabels l;
+    if (persist_exists(PKEY_LABELS) &&
+        persist_read_data(PKEY_LABELS, &l, sizeof(l)) == (int)sizeof(l)) {
+      memcpy(s_label_tl, l.tl, sizeof(s_label_tl));
+      memcpy(s_label_tr, l.tr, sizeof(s_label_tr));
+      memcpy(s_label_bot, l.bot, sizeof(s_label_bot));
+    }
+    s_ns_url[sizeof(s_ns_url) - 1] = '\0';
+    s_ns_token[sizeof(s_ns_token) - 1] = '\0';
+    s_label_tl[sizeof(s_label_tl) - 1] = '\0';
+    s_label_tr[sizeof(s_label_tr) - 1] = '\0';
+    s_label_bot[sizeof(s_label_bot) - 1] = '\0';
+  } else {
+    load_persist_legacy();
+  }
+}
+
 // ── Window ────────────────────────────────────────────────────────────────
 static void window_load(Window *w) {
-  s_font_d14_time = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG_TIME52));
-  s_font_d14_time44 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG_TIME44));
-  s_font_d7_date  = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG_DATE20));
+  s_font_d14_time = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG_TIME48));
+  s_font_d14_time38 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG_TIME38));
+  s_font_d7_date  = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG_DATE14));
   s_font_d7_comp  = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG_COMP22));
   s_font_comp_reg = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DSEG_COMP22_REG));
 
@@ -1006,7 +1136,7 @@ static void window_unload(Window *w) {
   layer_destroy(s_canvas);
   s_canvas = NULL;
   if (s_font_d14_time) { fonts_unload_custom_font(s_font_d14_time); s_font_d14_time = NULL; }
-  if (s_font_d14_time44) { fonts_unload_custom_font(s_font_d14_time44); s_font_d14_time44 = NULL; }
+  if (s_font_d14_time38) { fonts_unload_custom_font(s_font_d14_time38); s_font_d14_time38 = NULL; }
   if (s_font_d7_date)  { fonts_unload_custom_font(s_font_d7_date);  s_font_d7_date  = NULL; }
   if (s_font_d7_comp)  { fonts_unload_custom_font(s_font_d7_comp);  s_font_d7_comp  = NULL; }
   if (s_font_comp_reg) { fonts_unload_custom_font(s_font_comp_reg); s_font_comp_reg = NULL; }

@@ -44,6 +44,8 @@ var K = {
   CGM_BOX_ENABLED:    35,
   COLOR_CGM_BOX_BG:   36,
   GHOST_COMP_ENABLED: 37,
+  VIBE_ON_LOW:        38,
+  VIBE_ON_HIGH:       39,
   CGM_VALUE:          50, CGM_DELTA:      51, CGM_TREND:       52,
   CGM_AGE:         53, STEPS:          54, HR:              55,
   WEATHER_TEMP:    56, WEATHER_ICON:   57, BATT_PCT:        58,
@@ -76,6 +78,43 @@ function colorToInt(hex) {
   return parseInt(hex, 16);
 }
 
+// ── AppMessage queue: one message in flight, retry on NACK ────────────────
+// Config and BG messages are often sent back to back; without a queue the
+// second one fails with APP_MSG_BUSY.
+var outbox = [];
+var sending = false;
+
+function pump() {
+  if (sending || outbox.length === 0) return;
+  sending = true;
+  var item = outbox[0];
+  Pebble.sendAppMessage(item.msg, function() {
+    outbox.shift();
+    sending = false;
+    if (item.ok) item.ok();
+    pump();
+  }, function() {
+    item.tries++;
+    if (item.tries >= 3) {
+      outbox.shift();
+      console.log('[CasioCGM] ' + item.label + ' send failed');
+    }
+    sending = false;
+    setTimeout(pump, 1000);
+  });
+}
+
+function sendMsg(msg, label, ok) {
+  outbox.push({ msg: msg, label: label, ok: ok, tries: 0 });
+  pump();
+}
+
+// supercgm: a reading is stale after 2x the sensor interval (min. 5 min)
+function staleMin() {
+  var sensorMin = Math.max(1, parseInt(config.bgFetchIntervalMin || configDefaults.bgFetchIntervalMin, 10));
+  return Math.max(5, sensorMin * 2);
+}
+
 // ── Send config to watch ──────────────────────────────────────────────────
 function sendConfig() {
   var msg = {};
@@ -95,7 +134,7 @@ function sendConfig() {
   }
   msg[K.NS_HIGH]         = thHigh;
   msg[K.NS_LOW]          = thLow;
-  msg[K.NS_STALE_MIN]    = parseInt(config.nsStaleMin)  || 10;
+  msg[K.NS_STALE_MIN]    = staleMin();
   msg[K.COLOR_BG]        = colorToInt(config.colorBg     || '#FFFFFF');
   msg[K.COLOR_FG]        = colorToInt(config.colorFg     || '#000055');
   msg[K.COLOR_ACCENT]    = colorToInt(config.colorAccent || '#FF0000');
@@ -122,12 +161,10 @@ function sendConfig() {
   msg[K.COLOR_BACKLIGHT]   = colorToInt(config.colorBacklight  || '#FFFFFF');
   msg[K.CGM_BOX_ENABLED]  = (parseInt(config.cgmBoxEnabled) !== 0) ? 1 : 0;
   msg[K.COLOR_CGM_BOX_BG] = colorToInt(config.colorCgmBoxBg || '#EEEEEE');
+  msg[K.VIBE_ON_LOW]      = config.vibeOnLow  ? 1 : 0;
+  msg[K.VIBE_ON_HIGH]     = config.vibeOnHigh ? 1 : 0;
 
-  Pebble.sendAppMessage(msg, function() {
-    console.log('[CasioCGM] Config sent');
-  }, function(e) {
-    console.log('[CasioCGM] Config send failed: ' + JSON.stringify(e));
-  });
+  sendMsg(msg, 'Config', function() { console.log('[CasioCGM] Config sent'); });
 }
 
 // ── Smart CGM scheduling ──────────────────────────────────────────────────
@@ -168,13 +205,7 @@ function planNextBGFetch(lastBgTsSec, serverNowSec) {
   var targetMs  = lastBgTsSec * 1000 + sensorMs + 30000;
   var delay     = targetMs - refNowMs;
 
-  if (delay < 15000) {
-    // Reading is already due/overdue. If it's only slightly late, poll fast
-    // (15 s) to pick the new value up as soon as NS has it. If it's already
-    // older than 2 sensor intervals (sensor gap/warmup), back off to 1 min.
-    var ageMs = refNowMs - lastBgTsSec * 1000;
-    delay = (ageMs > sensorMs * 2) ? 60000 : 15000;
-  }
+  if (delay < 15000) delay = 15000;  // overdue: poll every 15 s (supercgm)
   if (delay > manualMs * 3) delay = manualMs;  // clamp if ts looks wrong (future)
 
   console.log('[CasioCGM] planNextBGFetch: synced, next in ' + Math.round(delay / 1000) + ' s');
@@ -191,11 +222,30 @@ function planNextBGFetch(lastBgTsSec, serverNowSec) {
 function sendBgStatus(status, extra) {
   var msg = extra || {};
   msg[K.CGM_STATUS] = status;
-  Pebble.sendAppMessage(msg, function() {
-    console.log('[CasioCGM] BG status ' + status + ' sent');
-  }, function() {
-    console.log('[CasioCGM] BG status send failed');
-  });
+  sendMsg(msg, 'BG status ' + status);
+}
+
+// supercgm parsers: auto-detect whether Nightscout sends mmol (float < 40)
+// or mg/dL. The watch compares thresholds against mg/dL, so both return mg/dL.
+function parseSgvMgdl(raw) {
+  var f = parseFloat(raw);
+  if (!isFinite(f) || f <= 0) return NaN;
+  return f < 40 ? Math.round(f * 18) : Math.round(f);
+}
+
+function parseDeltaMgdl(raw) {
+  var f = parseFloat(raw);
+  if (!isFinite(f)) return NaN;
+  return (Math.abs(f) < 30 && String(raw).indexOf('.') >= 0) ? f * 18 : f;
+}
+
+// Delta display like supercgm: "+3" / "-0.2" / "+-0", "--" when unknown
+function formatDelta(deltaMgdl, mmol) {
+  if (!isFinite(deltaMgdl)) return '--';
+  var v = mmol ? Math.round(deltaMgdl / 18 * 10) / 10 : Math.round(deltaMgdl);
+  if (v === 0) return '+-0';
+  var s = mmol ? Math.abs(v).toFixed(1) : String(Math.abs(v));
+  return (v > 0 ? '+' : '-') + s;
 }
 
 function fetchNightscout() {
@@ -221,24 +271,33 @@ function fetchNightscout() {
     if (req.status === 200) {
       try {
         var data = JSON.parse(req.responseText);
-        if (!data || !data.bgs || data.bgs.length === 0) {
+        // Handle Nightscout /pebble ({bgs:[...]}), plain arrays and flat
+        // objects (supercgm parser)
+        var bg = null;
+        var serverNow = 0;
+        if (data && Array.isArray(data.bgs) && data.bgs.length > 0) {
+          bg = data.bgs[0];
+          // Prefer Nightscout server time over the phone clock (avoids skew)
+          if (Array.isArray(data.status) && data.status[0]) {
+            serverNow = parseInt(data.status[0].now || 0, 10) || 0;
+          }
+        } else if (Array.isArray(data) && data.length > 0) {
+          bg = data[0];
+        } else if (data && (data.sgv || data.value || data.glucose)) {
+          bg = data;
+        }
+        if (!bg) {
           sendBgStatus(BG_STATUS.NO_DATA);
           planNextBGFetch(null);
           return;
         }
 
-        var bg     = data.bgs[0];
-        var sgv    = parseInt(bg.sgv, 10) || 0;   // /pebble sgv is mg/dL
-        var delta  = parseFloat(bg.bgdelta);
-        if (!isFinite(delta)) delta = 0;
-        var trend  = trendArrow(bg.direction || '');
-        // datetime is milliseconds; convert to seconds for scheduling
-        var bgTs   = bg.datetime ? Math.floor(bg.datetime / 1000) : 0;
-        // Prefer Nightscout server time over the phone clock (avoids skew)
-        var serverNow = 0;
-        if (data.status && data.status[0] && data.status[0].now) {
-          serverNow = Math.floor(parseInt(data.status[0].now, 10) / 1000) || 0;
-        }
+        var sgv    = parseSgvMgdl(bg.sgv || bg.glucose || bg.value) || 0;
+        var delta  = parseDeltaMgdl(bg.bgdelta);
+        var trend  = trendArrow(bg.direction || bg.trend || '');
+        var bgTs   = parseInt(bg.datetime || bg.date || bg.mills || bg.timestamp || 0, 10) || 0;
+        if (bgTs > 1000000000000) bgTs = Math.floor(bgTs / 1000);        // ms -> s
+        if (serverNow > 1000000000000) serverNow = Math.floor(serverNow / 1000);
         var nowSec = serverNow > 0 ? serverNow : Math.floor(Date.now() / 1000);
         if (!bgTs) bgTs = nowSec;
         var ageMin = Math.max(0, Math.round((nowSec - bgTs) / 60));
@@ -249,20 +308,14 @@ function fetchNightscout() {
           return;
         }
 
-        // OLD when the reading is older than the configured stale threshold;
-        // the watch also re-checks this locally every minute.
-        var staleMin = parseInt(config.nsStaleMin) || 10;
-        var status = (ageMin > staleMin) ? BG_STATUS.OLD : BG_STATUS.OK;
+        // OLD after 2x the sensor interval (supercgm); the watch also
+        // re-checks this locally on every redraw.
+        var status = (nowSec - bgTs > staleMin() * 60) ? BG_STATUS.OLD : BG_STATUS.OK;
 
-        // Convert display strings to mmol if needed
-        var valStr, deltaStr;
-        if (parseInt(config.nsUnits) === 1) {
-          valStr   = (sgv / 18.0).toFixed(1);
-          deltaStr = (delta >= 0 ? '+' : '') + (delta / 18.0).toFixed(1);
-        } else {
-          valStr   = String(sgv);
-          deltaStr = (delta >= 0 ? '+' : '') + String(Math.round(delta));
-        }
+        // Display strings (mmol with one decimal)
+        var mmol = parseInt(config.nsUnits) === 1;
+        var valStr   = mmol ? (sgv / 18.0).toFixed(1) : String(sgv);
+        var deltaStr = formatDelta(delta, mmol);
 
         var msg = {};
         msg[K.CGM_VALUE] = valStr;
@@ -283,6 +336,7 @@ function fetchNightscout() {
         planNextBGFetch(null);
       }
     } else {
+      // Unlike supercgm, keep polling after HTTP errors
       console.log('[CasioCGM] HTTP error: ' + req.status);
       sendBgStatus(BG_STATUS.NO_CONN);
       planNextBGFetch(null);
@@ -331,7 +385,7 @@ function fetchWeather() {
           var msg = {};
           msg[K.WEATHER_TEMP] = temp;
           msg[K.WEATHER_ICON] = icon;
-          Pebble.sendAppMessage(msg);
+          sendMsg(msg, 'Weather');
         } catch(ex) {}
       }
     };
@@ -378,7 +432,8 @@ Pebble.addEventListener('ready', function() {
 Pebble.addEventListener('webviewclosed', function(e) {
   if (!e.response || e.response === 'CANCELLED') return;
   try {
-    config = applyDefaults(JSON.parse(decodeURIComponent(e.response)));
+    var raw = e.response;
+    config = applyDefaults(JSON.parse(raw.charAt(0) === '{' ? raw : decodeURIComponent(raw)));
     localStorage.setItem('casiocgm_config', JSON.stringify(config));
     sendConfig();
     scheduleFetch();
@@ -388,9 +443,10 @@ Pebble.addEventListener('webviewclosed', function(e) {
 });
 
 Pebble.addEventListener('showConfiguration', function() {
-  var baseUrl = 'http://casiocgm.aize-it.de/config/';
+  // Config travels in the URL fragment: the token never reaches the server
+  var baseUrl = 'https://sgitaize.github.io/casiocgm/config/';
   var stored  = localStorage.getItem('casiocgm_config') || '{}';
-  var url     = baseUrl + '?config=' + encodeURIComponent(stored);
+  var url     = baseUrl + '#config=' + encodeURIComponent(stored);
   Pebble.openURL(url);
 });
 
