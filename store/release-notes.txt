@@ -1,1 +1,1 @@
-First appstore release: Casio TIME 2 layout, Nightscout CGM with smart sync, low/high vibration, configurable complications.
+Smarter CGM fetching saves phone battery: the upload delay of your Nightscout uploader is learned, so readings are fetched right when they arrive (slow uploader: ~150 -> ~28 requests/h). Time centred between complication box and info strip. New default colour for high glucose (#A96800).

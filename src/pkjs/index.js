@@ -138,7 +138,7 @@ function sendConfig() {
   msg[K.COLOR_FG]        = colorToInt(config.colorFg     || '#000055');
   msg[K.COLOR_ACCENT]    = colorToInt(config.colorAccent || '#FF0000');
   msg[K.COLOR_CGM_OK]    = colorToInt(config.colorCgmOk  || '#38571A');
-  msg[K.COLOR_CGM_HIGH]  = colorToInt(config.colorCgmHigh|| '#FFAA00');
+  msg[K.COLOR_CGM_HIGH]  = colorToInt(config.colorCgmHigh|| '#A96800');
   msg[K.COLOR_CGM_LOW]   = colorToInt(config.colorCgmLow || '#FF0000');
   msg[K.COMPLICATION]    = parseInt(config.complication) || 0;
   msg[K.LABEL_TOP_LEFT]  = config.labelTopLeft   || 'QUARTZ';

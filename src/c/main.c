@@ -74,7 +74,7 @@ static int  s_color_bg        = 0xFFFFFF;
 static int  s_color_fg        = 0x000044;
 static int  s_color_accent    = 0xFF0000;
 static int  s_color_cgm_ok    = 0x38571A;
-static int  s_color_cgm_high  = 0xAA5500;
+static int  s_color_cgm_high  = 0xA96800;  // shown as 0xAA5500 (64-colour palette)
 static int  s_color_cgm_low   = 0xAA0000;
 
 static int  s_complication    = 0;
