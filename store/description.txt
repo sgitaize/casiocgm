@@ -1,0 +1,11 @@
+Casio-style LCD watchface for Pebble Time 2 with live Nightscout CGM (blood glucose).
+
+- Glucose value with trend arrow in the classic 5-digit box, coloured by your low/high thresholds (mg/dL or mmol/L)
+- Smart sync: fetches right after each new sensor reading (reading time + interval + 30 s, Nightscout server time) – no waiting minutes for a fresh value
+- Clear status: NOCON / NO-BG / OLDBG when data is missing or old
+- Optional vibration on low / high (10 min cooldown)
+- Alternative complications: steps, heart rate, weather, battery, second date – shake to cycle
+- Editable labels, colours, seconds, date format, weekday language
+- Configuration page with live preview
+
+Open source: https://github.com/sgitaize/casiocgm

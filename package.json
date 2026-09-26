@@ -1,7 +1,7 @@
 {
   "name": "casiocgm",
   "author": "simon",
-  "version": "2.2.1",
+  "version": "2.2.2",
   "keywords": [
     "pebble-app"
   ],
@@ -9,7 +9,7 @@
   "dependencies": {},
   "pebble": {
     "displayName": "CasioCGM",
-    "uuid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "uuid": "6a8bead9-d7d1-4183-bbb6-e351208ac33f",
     "sdkVersion": "3",
     "enableMultiJS": true,
     "targetPlatforms": [

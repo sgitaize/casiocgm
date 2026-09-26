@@ -239,6 +239,20 @@ pebble logs
 
 ---
 
+## Appstore (Core Devices / repebble)
+
+- UUID `6a8bead9-d7d1-4183-bbb6-e351208ac33f` since v2.2.2 (the old
+  placeholder UUID was replaced for the store; installs of ≤2.2.1 appear as
+  a different app, phone-side settings start fresh).
+- `store/` holds the listing: `description.txt`, `release-notes.txt`,
+  screenshots `emery_*.png` (200×228, filename must start with the platform).
+- Upload: `pebble login` once (browser; on a headless server use
+  `--no-open-browser` and forward the final `http://localhost:60000/?…`
+  redirect URL with curl), then `store/publish.sh`. Without
+  `--is-published` the release stays in the dashboard (publish/private there).
+
+---
+
 ## Extension Points
 
 To add a new complication:
