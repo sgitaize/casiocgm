@@ -525,17 +525,17 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
       // HH:MM @38 (≈130 px) left, seconds @22 in the bottom-right corner
       GFont f_time_s = s_font_d14_time38 ? s_font_d14_time38 : f_dseg_lg;
       lcd_text(ctx, "88:88", time_str, f_time_s,
-               GRect(x_l, y_time + (t_h - 38) / 2 - PY(4), PX(136), 44),
+               GRect(x_l, y_time + (t_h - 38) / 2 + PY(1), PX(136), 44),
                col_ghost, col_fg, GTextAlignmentLeft);
       char sec_str[4];
       snprintf(sec_str, sizeof(sec_str), "%02d", tnow->tm_sec);
       lcd_text(ctx, "88", sec_str, f_comp,
-               GRect(x_r - PX(38), y_info - PY(30), PX(38), 26),
+               GRect(x_r - PX(38), y_info - PY(31), PX(38), 26),
                col_ghost, col_fg, GTextAlignmentRight);
     } else {
       // HH:MM @48 (≈164 px) centered
       lcd_text(ctx, "88:88", time_str, f_dseg_lg,
-               GRect(ix, y_time + (t_h - 48) / 2 - PY(5), iw, 54),
+               GRect(ix, y_time + (t_h - 48) / 2, iw, 54),
                col_ghost, col_fg, GTextAlignmentCenter);
     }
     // "P" indicator: lit for PM in 12h mode, otherwise a ghost segment

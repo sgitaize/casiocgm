@@ -863,10 +863,10 @@ function drawPreview() {
 
   // 7. time (+ seconds), "P"
   if (showSec) {
-    lcd('88:88', timeStr, 14, 87, 38, 'left');
-    lcd('88', pad2(now.getSeconds()), 186, 105, 22, 'right');
+    lcd('88:88', timeStr, 14, 88, 38, 'left');
+    lcd('88', pad2(now.getSeconds()), 186, 104, 22, 'right');
   } else {
-    lcd('88:88', timeStr, W / 2, 81, 48, 'center');
+    lcd('88:88', timeStr, W / 2, 82, 48, 'center');
   }
   if (ghostEnabled) txt('P', 14, 74, '9px sans-serif', colGhost);
 
