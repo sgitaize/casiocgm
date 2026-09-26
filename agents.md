@@ -95,27 +95,30 @@ block at the top of `main.c`.)
 
 ---
 
-## Watch Layout (ref 144×168, scaled to Emery 200×228)
+## Watch Layout (emery 200×228, modelled on the Casio "TIME 2 / HEART RATE MONITOR" photo)
 
 ```
-┌──────────────────────────────────────┐
-│ QUARTZ              TIME 2           │  ← s_label_tl / s_label_tr ("2" blue)
-│╔════════════════════════════════════╗│  ← RED RING (continuous rounded frame)
-│║ ◄LIGHT   pebble           UP►     ║│
-│║                           ENTER►  ║│
-│║ ┌───────────────────────────────┐ ║│
-│║ │ 22-06   ╭───────────╮        │ ║│
-│║ │  P      │ CGM/COMP ↗│        │ ║│  ← date + rounded comp box + trend
-│║ │         ╰───────────╯        │ ║│
-│║ │  08:08                  [42] │ ║│  ← time + optional small seconds
-│║ │ BAT ████░░    ▪ ▪ ▪ █ ▪ ▪ ▪ │ ║│  ← BAT label+bar | day marker squares
-│║ │      S  M  T  W  T  F  S     │ ║│  ← weekday letters in the dark
-│║ └───────────────────────────────┘ ║│    bottom band of the LCD frame
-│║ [CGM Active] ↗ +2 3m      DOWN►   ║│  ← CGM status box + trend/delta/age
-│╚════════════════════════════════════╝│
-│          E-PAPER DISPLAY             │  ← yellow banner
-└──────────────────────────────────────┘
+  0..16   QUARTZ (s_label_tl)                 TIME 2 (s_label_tr, last word blue)
+ 16..203  red ring (accent colour): top band, thin side rails, bottom band
+ 20..43   ◄LIGHT        pebble (yellow)        UP► / ENTER► (two rows)
+ 43..164  LCD: white outer frame (3 px), white panel
+   49..75   date DSEG16 "88-88"   | comp box DSEG22 (rounded, lavender border)
+   77..133  HH:MM DSEG48 centred  (seconds on: DSEG38 left + DSEG22 seconds)
+            small "P" (ghost, lit for PM in 12h mode)
+  135..151  BAT + 10 bars | divider | 7 day squares (today filled)
+  151..164  S M T W T F S (white, dark frame band)
+166..196  CGM status 2 lines (blue: status / white: delta + age)
+          yellow heart with trend arrow (grey when stale/error)    DOWN►
+203..228  s_label_bot in yellow (default "E-PAPER DISPLAY")
 ```
+
+All geometry is in `canvas_update_proc()` (PX/PY scale from 200×228); the
+config page preview (`drawPreview()` in docs/config/index.html) mirrors it
+with the same pixel values — keep both in sync.
+
+Defaults: LCD bg #FFFFFF, fg #000055, ghost #AAAAFF, status blue #55AAFF.
+The old status box options (CGM_BOX_ENABLED, COLOR_CGM_BOX_BG) have no effect
+since v2.2 and are hidden on the config page.
 
 ---
 
@@ -156,6 +159,9 @@ the watch every redraw** via `cgm_status_text()`:
 - Optional vibration (VIBE_ON_LOW/HIGH): low 3 pulses, high 2 pulses,
   10-min cooldown per direction, checked when a CGM_STATUS arrives.
 - Delta string: "+3" / "-0.2" / "+-0" (zero) / "--" (unknown).
+- Trend: case-insensitive matching like supercgm; unknown directions flat.
+- Deliberate deviations from supercgm: polling continues after HTTP errors
+  (supercgm stops for good), no URL shows "----" / "NO URL".
 
 Because the age is derived from `s_cgm_ts` (not a static age int), the face
 flips to OLDBG even if the phone never sends another message.
@@ -217,14 +223,19 @@ pebble logs
   firmware 4.9 froze completely (emulator unresponsive, app log stopped in
   the date draw). DSEG draws use `GTextOverflowModeFill` now, and font sizes
   are chosen so everything fits: DSEG14 advance = 0.816 em per glyph
-  ("88:88"@48 ≈ 164 px, "88-88"@14 ≈ 57 px, "88:88"@38 ≈ 130 px).
+  ("88:88"@48 ≈ 164 px, "88-88"@16 ≈ 65 px, "88:88"@38 ≈ 130 px).
 - **The trailing number in a font resource NAME wins over `size`** — keep
-  both in sync (FONT_DSEG_TIME48 / DATE14 / TIME38).
+  both in sync (FONT_DSEG_TIME48 / DATE16 / TIME38).
 - Persist: config is stored in 4 keys (numeric struct, URL, token, labels),
   written only when changed — not ~35 single keys per config message.
   v1.x per-key data is migrated on first start.
-- SDK 4.9 emulator + pebble-tool 5 is flaky (random "App install failed"
-  after 19 s even for trivial faces) — test on 4.33.1.
+- **Always cross-check with a known-working face first** (e.g. official
+  pebble-examples) before blaming the infrastructure.
+- SDK 4.9 emulator: sporadic "App install failed" after ~19 s for *any* app
+  with resources (official watchface-tutorial: 11/15, simple-analog without
+  resources: 15/15). On SDK 4.33.1 CasioCGM and the tutorial pass 10/10.
+- pebble-tool output is block-buffered when redirected — set
+  `PYTHONUNBUFFERED=1` in test scripts, otherwise results look like hangs.
 
 ---
 

@@ -58,18 +58,16 @@ var BG_STATUS = { OK: 0, NO_DATA: 1, NO_CONN: 2, OLD: 3 };
 
 // ── Trend direction → single ASCII char (drawn graphically in C) ──────────
 function trendArrow(direction) {
-  var map = {
-    'DoubleUp':          'U',
-    'SingleUp':          'u',
-    'FortyFiveUp':       'r',
-    'Flat':              '-',
-    'FortyFiveDown':     'f',
-    'SingleDown':        'd',
-    'DoubleDown':        'D',
-    'NOT COMPUTABLE':    '?',
-    'RATE OUT OF RANGE': '!'
-  };
-  return map[direction] || '-';
+  // Same matching as supercgm (case-insensitive, also "up"/"down"); unknown
+  // directions (NOT COMPUTABLE, RATE OUT OF RANGE, …) draw flat
+  var dir = String(direction || '').toLowerCase();
+  if (dir.indexOf('doubleup') >= 0)                   return 'U';
+  if (dir.indexOf('singleup') >= 0 || dir === 'up')   return 'u';
+  if (dir.indexOf('fortyfiveup') >= 0)                return 'r';
+  if (dir.indexOf('fortyfivedown') >= 0)              return 'f';
+  if (dir.indexOf('singledown') >= 0 || dir === 'down') return 'd';
+  if (dir.indexOf('doubledown') >= 0)                 return 'D';
+  return '-';
 }
 
 // ── Color string (#RRGGBB) → int24 ────────────────────────────────────────
@@ -109,10 +107,11 @@ function sendMsg(msg, label, ok) {
   pump();
 }
 
-// supercgm: a reading is stale after 2x the sensor interval (min. 5 min)
+// supercgm: a reading is stale after 2x the sensor interval (the watch
+// additionally enforces at least 5 min, like supercgm's C code)
 function staleMin() {
   var sensorMin = Math.max(1, parseInt(config.bgFetchIntervalMin || configDefaults.bgFetchIntervalMin, 10));
-  return Math.max(5, sensorMin * 2);
+  return sensorMin * 2;
 }
 
 // ── Send config to watch ──────────────────────────────────────────────────
@@ -144,18 +143,18 @@ function sendConfig() {
   msg[K.COMPLICATION]    = parseInt(config.complication) || 0;
   msg[K.LABEL_TOP_LEFT]  = config.labelTopLeft   || 'QUARTZ';
   msg[K.LABEL_TOP_RIGHT] = config.labelTopRight  || 'TIME 2';
-  msg[K.LABEL_BOTTOM]    = config.labelBottom    || 'CGM Enabled';
+  msg[K.LABEL_BOTTOM]    = config.labelBottom    || 'E-PAPER DISPLAY';
   msg[K.FIRST_WEEKDAY]   = parseInt(config.firstWeekday) || 0;
   msg[K.DATE_FORMAT]     = parseInt(config.dateFormat)   || 0;
   msg[K.SHAKE_2ND]       = parseInt(config.shake2nd)     || 0;
   msg[K.WDAY_LANG]       = parseInt(config.wdayLang)     || 0;
   msg[K.SHOW_SECONDS]    = parseInt(config.showSeconds)  || 0;
-  msg[K.COLOR_GHOST]       = colorToInt(config.colorGhost     || '#ADADAD');
+  msg[K.COLOR_GHOST]       = colorToInt(config.colorGhost     || '#AAAAFF');
   msg[K.COLOR_LABEL_TOP]   = colorToInt(config.colorLabelTop  || '#FFFFFF');
   msg[K.GHOST_ENABLED]     = parseInt(config.ghostEnabled) !== 0 ? 1 : 0;
   msg[K.GHOST_COMP_ENABLED]= parseInt(config.ghostCompEnabled) !== 0 ? 1 : 0;
-  msg[K.COLOR_CGM_BANNER]  = colorToInt(config.colorCgmBanner || '#38571A');
-  msg[K.COLOR_TIME2_BG]    = colorToInt(config.colorTime2Bg   || '#EEEEEE');
+  msg[K.COLOR_CGM_BANNER]  = colorToInt(config.colorCgmBanner || '#55AAFF');
+  msg[K.COLOR_TIME2_BG]    = colorToInt(config.colorTime2Bg   || '#FFFFFF');
   msg[K.COLOR_CGM_INFO]    = colorToInt(config.colorCgmInfo    || '#FFFFFF');
   msg[K.BACKLIGHT_ENABLED] = (parseInt(config.backlightEnabled) !== 0) ? 1 : 0;
   msg[K.COLOR_BACKLIGHT]   = colorToInt(config.colorBacklight  || '#FFFFFF');

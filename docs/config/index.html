@@ -349,7 +349,7 @@
         </select>
         <p class="hint" data-en="Disables only the ghost 8s inside the complication box; other ghost segments stay." data-de="Blendet nur die Geister-8en im Komplikationsfeld aus; andere Geister-Segmente bleiben.">Only affects the complication box.</p>
       </div>
-      <div class="field">
+      <div class="field" style="display:none"><!-- unused since v2.2 layout -->
         <label data-en="CGM status box" data-de="CGM-Status-Rahmen">CGM status box</label>
         <select id="cgmBoxEnabled">
           <option value="1" data-en="On – border around CGM status (default)" data-de="An – Rahmen um CGM-Status (Standard)">On (default)</option>
@@ -378,9 +378,9 @@
         </div>
       </div>
       <div class="field">
-        <label data-en="Bottom banner (when CGM active)" data-de="Unterer Banner (wenn CGM aktiv)">Bottom banner</label>
-        <input type="text" id="labelBottom" value="CGM Enabled" maxlength="20">
-        <p class="hint" data-en="Shown in the accent strip when CGM is active. Errors (no URL, no connection) override this." data-de="Wird im Akzent-Streifen angezeigt wenn CGM aktiv. Fehler überschreiben den Text.">Shown when CGM is active. Errors override this automatically.</p>
+        <label data-en="Bottom banner (yellow)" data-de="Unterer Banner (gelb)">Bottom banner</label>
+        <input type="text" id="labelBottom" value="E-PAPER DISPLAY" maxlength="20">
+        <p class="hint" data-en="Yellow text at the very bottom, like E-PAPER DISPLAY on the original." data-de="Gelber Text ganz unten, wie E-PAPER DISPLAY beim Original.">Yellow text at the very bottom.</p>
       </div>
     </div>
   </div>
@@ -444,8 +444,8 @@
         <div class="field">
           <label data-en="LCD background" data-de="LCD-Hintergrund">LCD background</label>
           <div class="color-row">
-            <input type="color" id="colorBgPicker" value="#EEEEEE" oninput="syncColor('colorBg','colorBgPicker')">
-            <input type="text"  id="colorBg"        value="#EEEEEE" maxlength="7" oninput="syncColor('colorBgPicker','colorBg',true)">
+            <input type="color" id="colorBgPicker" value="#FFFFFF" oninput="syncColor('colorBg','colorBgPicker')">
+            <input type="text"  id="colorBg"        value="#FFFFFF" maxlength="7" oninput="syncColor('colorBgPicker','colorBg',true)">
           </div>
           <p class="hint" data-en="Fill of the LCD screen area." data-de="Füllfarbe des LCD-Bildschirmbereichs.">LCD screen fill.</p>
         </div>
@@ -462,8 +462,8 @@
         <div class="field">
           <label data-en="LCD unlit segments" data-de="LCD Geister-Segmente">LCD unlit segments</label>
           <div class="color-row">
-            <input type="color" id="colorGhostPicker" value="#ADADAD" oninput="syncColor('colorGhost','colorGhostPicker')">
-            <input type="text"  id="colorGhost"        value="#ADADAD" maxlength="7" oninput="syncColor('colorGhostPicker','colorGhost',true)">
+            <input type="color" id="colorGhostPicker" value="#AAAAFF" oninput="syncColor('colorGhost','colorGhostPicker')">
+            <input type="text"  id="colorGhost"        value="#AAAAFF" maxlength="7" oninput="syncColor('colorGhostPicker','colorGhost',true)">
           </div>
           <p class="hint" data-en="Colour of unlit digit segments (ghost 8s). Lighter = more subtle." data-de="Farbe der nicht leuchtenden Segmente (Ghost-8en). Heller = dezenter.">Ghost digit segments (lighter = more subtle).</p>
         </div>
@@ -471,8 +471,8 @@
         <div class="field">
           <label data-en="Date row background" data-de="Datumszeile Hintergrund">Date row background</label>
           <div class="color-row">
-            <input type="color" id="colorTime2BgPicker" value="#EEEEEE" oninput="syncColor('colorTime2Bg','colorTime2BgPicker')">
-            <input type="text"  id="colorTime2Bg"        value="#EEEEEE" maxlength="7" oninput="syncColor('colorTime2BgPicker','colorTime2Bg',true)">
+            <input type="color" id="colorTime2BgPicker" value="#FFFFFF" oninput="syncColor('colorTime2Bg','colorTime2BgPicker')">
+            <input type="text"  id="colorTime2Bg"        value="#FFFFFF" maxlength="7" oninput="syncColor('colorTime2BgPicker','colorTime2Bg',true)">
           </div>
           <p class="hint" data-en="Tinted strip behind the date + complication row. Same as LCD BG = no effect." data-de="Getönter Streifen hinter Datum- und Komplikationszeile. Gleich wie LCD-BG = kein Effekt.">Tint behind date + complication. Same as LCD BG = no effect.</p>
         </div>
@@ -541,13 +541,13 @@
         <div class="field">
           <label data-en="CGM status label text" data-de="CGM-Status-Text">CGM status label</label>
           <div class="color-row">
-            <input type="color" id="colorCgmBannerPicker" value="#38571A" oninput="syncColor('colorCgmBanner','colorCgmBannerPicker')">
-            <input type="text"  id="colorCgmBanner"        value="#38571A" maxlength="7" oninput="syncColor('colorCgmBannerPicker','colorCgmBanner',true)">
+            <input type="color" id="colorCgmBannerPicker" value="#55AAFF" oninput="syncColor('colorCgmBanner','colorCgmBannerPicker')">
+            <input type="text"  id="colorCgmBanner"        value="#55AAFF" maxlength="7" oninput="syncColor('colorCgmBannerPicker','colorCgmBanner',true)">
           </div>
           <p class="hint" data-en="Colour of the &quot;CGM Active&quot; text &amp; box border (bottom-left). Independent of glucose value colour." data-de="Farbe des &quot;CGM Aktiv&quot;-Texts &amp; Rahmens (unten links). Unabhängig vom Glukosewert.">&quot;CGM Active&quot; text &amp; box border. Independent of glucose colour.</p>
         </div>
 
-        <div class="field">
+        <div class="field" style="display:none"><!-- unused since v2.2 layout -->
           <label data-en="CGM box fill" data-de="CGM-Box Füllfarbe">CGM box fill</label>
           <div class="color-row">
             <input type="color" id="colorCgmBoxBgPicker" value="#EEEEEE" oninput="syncColor('colorCgmBoxBg','colorCgmBoxBgPicker')">
@@ -741,18 +741,18 @@ function drawPreview() {
     var el = document.getElementById(id);
     return el ? el.value : def;
   }
-  var colBg        = cv('colorBg',        '#EEEEEE');
+  var colBg        = cv('colorBg',        '#FFFFFF');
   var colFg        = cv('colorFg',        '#000055');
   var colAccent    = cv('colorAccent',    '#FF0000');
-  var colGhost     = cv('colorGhost',     '#ADADAD');
+  var colGhost     = cv('colorGhost',     '#AAAAFF');
   var colLabelTop  = cv('colorLabelTop',  '#FFFFFF');
   var colCgmOk     = cv('colorCgmOk',     '#38571A');
   var colCgmHigh   = cv('colorCgmHigh',   '#FFAA00');
   var colCgmLow    = cv('colorCgmLow',    '#FF0000');
-  var colCgmBanner = cv('colorCgmBanner', '#38571A');
+  var colCgmBanner = cv('colorCgmBanner', '#55AAFF');
   var colCgmBoxBg  = cv('colorCgmBoxBg',  '#EEEEEE');
   var colCgmInfo       = cv('colorCgmInfo',       '#FFFFFF');
-  var colTime2Bg       = cv('colorTime2Bg',       '#EEEEEE');
+  var colTime2Bg       = cv('colorTime2Bg',       '#FFFFFF');
   var backlightEnabled = parseInt(cv('backlightEnabled', '1'));
   var colBacklight     = cv('colorBacklight',     '#FFFFFF');
   var labelTL      = cv('labelTopLeft',   'QUARTZ');
@@ -800,303 +800,109 @@ function drawPreview() {
     default: compStr = cgmVal;   cgmSlot = true;  break;
   }
 
-  // ── Y anchors (same as C) ─────────────────────────────────
-  var y_rs1    = SY(13);
-  var y_lcd    = SY(30);
-  var y_in     = SY(34);
-  var y_dr     = SY(36);
-  var y_time   = SY(61);
-  var y_info   = SY(112);
-  var y_in_end = SY(124);
-  var y_lcd_end= SY(126);
-  var y_cgs    = SY(130);
-  var y_rs2    = SY(148);
-  var y_ban    = SY(152);
+  // ── Draw: mirrors canvas_update_proc() in main.c (emery 200×228) ──────
+  var showSec  = parseInt(cv('showSeconds', '0')) === 1;
+  var labelBot = cv('labelBottom', 'E-PAPER DISPLAY');
+  var DS = '"DSEG14", "Courier New", monospace';
+  var cgmCol = cgmSlot ? colCgmOk : colFg;
 
-  var lrad = SX(8);
-  var irad = SX(6);
-  var lx = SX(1);
-  var lw = W - SX(2);
-  var ix = lx + SX(4);
-  var iw = lw - SX(8);
-  var x_l = ix + SX(3);
-  var x_r = ix + iw - SX(2);
-  var comp_w = SX(68);
-  var comp_x = x_r - comp_w - SX(4);
-  var date_w = comp_x - x_l - SX(2);
-  var dr_h = y_time - y_dr;
-
-  // ── 0. Backlight glow (behind everything, on watch-frame div) ────────────
-  // Show a coloured glow on the canvas border to simulate backlight tint
-  var watchFrame = document.querySelector('.watch-frame');
-  if (watchFrame) {
-    if (backlightEnabled) {
-      watchFrame.style.boxShadow = '0 0 18px 6px ' + colBacklight + '55, 0 4px 20px rgba(0,0,0,0.6)';
-      watchFrame.style.borderColor = colBacklight + '88';
-    } else {
-      watchFrame.style.boxShadow = '0 0 18px 6px #FFFFFF33, 0 4px 20px rgba(0,0,0,0.6)';
-      watchFrame.style.borderColor = '#555';
-    }
+  function txt(s, x, y, font, color, align) {
+    ctx.font = font; ctx.fillStyle = color;
+    ctx.textAlign = align || 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(s, x, y);
   }
-
-  // ── 1. Black background ───────────────────────────────────
-  ctx.fillStyle = '#000000';
-  ctx.fillRect(0, 0, W, H);
-
-  // ── 2. Top banner labels ──────────────────────────────────
-  ctx.fillStyle = colLabelTop;
-  ctx.font = 'bold 9px "Segoe UI", system-ui, sans-serif';
-  ctx.textBaseline = 'middle';
-  ctx.textAlign = 'left';
-  ctx.fillText(labelTL, SX(4), Math.round(y_rs1 / 2));
-  ctx.textAlign = 'right';
-  ctx.fillText(labelTR, W - SX(4), Math.round(y_rs1 / 2));
-
-  // ── 3. Top red band ───────────────────────────────────────
-  ctx.fillStyle = colAccent;
-  ctx.fillRect(0, y_rs1, W, SY(4));
-
-  // ── 4. Button labels ──────────────────────────────────────
-  var bl_y = y_rs1 + SY(4);
-  var bl_h = y_lcd - bl_y;
-  var bl_cy = bl_y + Math.round(bl_h / 2);
-  ctx.font = '8px "Segoe UI", system-ui, sans-serif';
-  ctx.fillStyle = '#FFFFFF';
-  ctx.textBaseline = 'middle';
-  ctx.textAlign = 'left';
-  ctx.fillText('◄ LIGHT', SX(4), bl_cy - 3);
-  ctx.fillStyle = '#FFFF00';
-  ctx.textAlign = 'center';
-  ctx.font = 'bold 10px "Segoe UI", system-ui, sans-serif';
-  ctx.fillText('pebble', W / 2, bl_cy);
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font = '8px "Segoe UI", system-ui, sans-serif';
-  ctx.textAlign = 'right';
-  ctx.fillText('UP ▶', W - SX(4), bl_y + Math.round(bl_h / 4));
-  ctx.fillText('SELECT ▶', W - SX(4), bl_y + Math.round(3 * bl_h / 4));
-
-  // ── 5. Outer LCD frame ────────────────────────────────────
-  var lh = y_lcd_end - y_lcd;
-  var bd = SX(4);
-  // Outer fill (fg color = border thickness illusion)
-  ctx.fillStyle = colFg;
-  roundRect(ctx, lx, y_lcd, lw, lh, lrad);
-  ctx.fill();
-  // Inner fill (bg color)
-  ctx.fillStyle = colBg;
-  roundRect(ctx, lx + bd, y_in, lw - 2 * bd, y_in_end - y_in, Math.max(0, lrad - bd));
-  ctx.fill();
-  // Outer stroke
-  ctx.strokeStyle = colFg;
-  ctx.lineWidth = 1;
-  roundRect(ctx, lx, y_lcd, lw, lh, lrad);
-  ctx.stroke();
-
-  // ── 5b. Time2 row tinted BG ───────────────────────────────
-  var t2_gap = 4;
-  ctx.fillStyle = colTime2Bg;
-  ctx.fillRect(ix + t2_gap, y_dr, iw - 2 * t2_gap, y_time - y_dr);
-
-  // ── 6. Double border ─────────────────────────────────────
-  var gap = 3;
-  ctx.strokeStyle = colFg;
-  ctx.lineWidth = 1;
-  roundRect(ctx, ix, y_in, iw, y_in_end - y_in, irad);
-  ctx.stroke();
-  roundRect(ctx, ix + gap, y_in + gap, iw - 2 * gap, (y_in_end - y_in) - 2 * gap, Math.max(0, irad - gap));
-  ctx.stroke();
-  // Separator line
-  ctx.beginPath();
-  ctx.moveTo(ix + gap + 1, y_info);
-  ctx.lineTo(ix + iw - gap - 1, y_info);
-  ctx.stroke();
-
-  // ── 7. Date ───────────────────────────────────────────────
-  var glyph_h  = 15;
-  var render_h = 20;
-  var row_ty   = y_dr + Math.round((dr_h - glyph_h) / 2) - 3;
-  if (row_ty < y_dr) row_ty = y_dr;
-  if (row_ty + render_h > y_dr + dr_h) row_ty = y_dr + dr_h - render_h;
-
-  if (ghostEnabled) {
-    ctx.fillStyle = colGhost;
-    ctx.font = '20px "DSEG14", "Courier New", monospace';
-    ctx.textBaseline = 'top';
-    ctx.textAlign = 'center';
-    ctx.fillText('88-88', Math.round(x_l + date_w / 2), row_ty);
+  function lcd(ghost, real, x, y, px, align) {
+    if (ghostEnabled) { ctx.font = px + 'px ' + DS; txt(ghost, x, y, px + 'px ' + DS, colGhost, align); }
+    txt(real, x, y, 'bold ' + px + 'px ' + DS, colFg, align);
   }
-  ctx.fillStyle = colFg;
-  ctx.font = '20px "DSEG14", "Courier New", monospace';
-  ctx.textBaseline = 'top';
-  ctx.textAlign = 'center';
-  ctx.fillText(dateStr, Math.round(x_l + date_w / 2), row_ty);
-
-  // ── 8. Comp box ───────────────────────────────────────────
-  var render_h_comp = 22;
-  ctx.strokeStyle = colFg;
-  ctx.lineWidth = 1;
-  ctx.strokeRect(comp_x, y_dr, comp_w, dr_h);
-
-  if (cgmSlot) {
-    var arw_w = SX(12);
-    var num_w = comp_w - arw_w - SX(2);
-    if (ghostComp) {
-      ctx.fillStyle = colGhost;
-      ctx.font = '22px "DSEG14", "Courier New", monospace';
-      ctx.textBaseline = 'top';
-      ctx.textAlign = 'right';
-      ctx.fillText('8888', comp_x + SX(1) + num_w, row_ty);
-    }
-    ctx.fillStyle = colCgmOk;
-    ctx.font = 'bold 22px "DSEG14", "Courier New", monospace';
-    ctx.textBaseline = 'top';
-    ctx.textAlign = 'right';
-    ctx.fillText(compStr, comp_x + SX(1) + num_w, row_ty);
-    // Trend arrow in comp box
-    drawTrendArrow(ctx, cgmTrend, comp_x + SX(1) + num_w, row_ty, arw_w, render_h_comp, colCgmOk);
-  } else {
-    var all_x = comp_x + SX(1);
-    var all_w = comp_w - SX(2);
-    if (ghostComp) {
-      ctx.fillStyle = colGhost;
-      ctx.font = '22px "DSEG14", "Courier New", monospace';
-      ctx.textBaseline = 'top';
-      ctx.textAlign = 'right';
-      ctx.fillText('88888', all_x + all_w, row_ty);
-    }
-    ctx.fillStyle = colFg;
-    ctx.font = 'bold 22px "DSEG14", "Courier New", monospace';
-    ctx.textBaseline = 'top';
-    ctx.textAlign = 'right';
-    ctx.fillText(compStr, all_x + all_w, row_ty);
-  }
-
-  // ── 9. Time HH:MM ─────────────────────────────────────────
-  var tdy = y_time + Math.round((y_in_end - y_time - SY(42)) / 2);
-  if (tdy < y_time) tdy = y_time;
-  if (ghostEnabled) {
-    ctx.fillStyle = colGhost;
-    ctx.font = 'bold 52px "DSEG14", "Courier New", monospace';
-    ctx.textBaseline = 'top';
-    ctx.textAlign = 'left';
-    ctx.fillText('88:88', ix + SX(1), tdy);
-  }
-  ctx.fillStyle = colFg;
-  ctx.font = 'bold 52px "DSEG14", "Courier New", monospace';
-  ctx.textBaseline = 'top';
-  ctx.textAlign = 'left';
-  ctx.fillText(timeStr, ix + SX(1), tdy);
-
-  // ── 10. Battery bar ───────────────────────────────────────
-  var info_top = y_info + SY(1);
-  var info_h   = y_in_end - y_info - SY(2);
-  if (info_h < 4) info_h = 4;
-  var mid_x   = ix + Math.round(iw / 2);
-  var bat_bx  = x_l;
-  var bat_bw  = mid_x - x_l - SX(3);
-  var bat_h   = Math.round((info_h * 3) / 5);
-  if (bat_h < 3) bat_h = 3;
-  var bat_top = info_top + Math.round((info_h - bat_h) / 2);
-  var n_seg   = 6;
-  var seg_gap = 2;
-  var seg_w   = bat_bw > (n_seg + 1) * seg_gap
-                ? Math.floor((bat_bw - (n_seg + 1) * seg_gap) / n_seg) : 2;
-  if (seg_w < 2) seg_w = 2;
-  if (seg_w > SX(8)) seg_w = SX(8);
-  var lit = Math.round((battPct * n_seg + 50) / 100);
-  if (lit > n_seg) lit = n_seg;
-  ctx.strokeStyle = colFg;
-  ctx.lineWidth = 1;
-  ctx.strokeRect(bat_bx, bat_top, bat_bw, bat_h);
-  for (var s = 0; s < n_seg; s++) {
-    var sx = bat_bx + seg_gap + s * (seg_w + seg_gap);
-    ctx.fillStyle = s < lit ? colFg : colGhost;
-    ctx.fillRect(sx, bat_top + 1, seg_w, bat_h - 2);
-  }
-
-  // ── 11. Day-of-week strip ─────────────────────────────────
-  var wday_x    = mid_x + SX(2);
-  var wday_w    = x_r - wday_x;
-  var day_step  = Math.round(wday_w / 7);
-  var wday_y    = info_top - 3;
-  ctx.font = 'bold 9px "Segoe UI", system-ui, sans-serif';
-  for (var i = 0; i < 7; i++) {
-    var dw = SX(10);
-    var dx = wday_x + i * day_step + Math.round((day_step - dw) / 2);
-    if (i === todayIdx) {
-      var r2 = 2;
-      ctx.fillStyle = colFg;
-      roundRect(ctx, dx - 1, wday_y + 2, dw + 2, info_h, r2);
-      ctx.fill();
-      ctx.fillStyle = colBg;
-    } else {
-      ctx.fillStyle = colGhost;
-    }
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'center';
-    ctx.fillText(daysArr[i], dx + Math.round(dw / 2), wday_y + Math.round(info_h / 2) + 1);
-  }
-
-  // ── 12. CGM status section ────────────────────────────────
-  var cgs_h  = y_rs2 - y_cgs;
-  var cgs_cy = y_cgs + Math.round(cgs_h / 2);
-  var nsUrl  = cv('nsUrl', '');
-  var cgs_txt = nsUrl.length < 4 ? 'No URL' : 'CGM Active';
-  var cgs_col = nsUrl.length < 4 ? colCgmLow : colCgmBanner;
-
-  // Measure text width for dynamic box
-  ctx.font = 'bold 11px "Segoe UI", system-ui, sans-serif';
-  var box_pad = SX(5);
-  var txt_w   = ctx.measureText(cgs_txt).width;
-  var box_w   = Math.round(txt_w + 2 * box_pad);
-  var box_x   = SX(2);
-  var box_y   = y_cgs + 1;
-  var box_h   = cgs_h - 2;
-
-  if (cgmBoxEnabled) {
-    ctx.fillStyle = colCgmBoxBg;
-    roundRect(ctx, box_x, box_y, box_w, box_h, irad);
+  function arrow(x, y, right) {
+    ctx.fillStyle = '#FFFFFF'; ctx.beginPath();
+    if (right) { ctx.moveTo(x, y); ctx.lineTo(x - 4, y - 2); ctx.lineTo(x - 4, y + 2); }
+    else       { ctx.moveTo(x, y); ctx.lineTo(x + 4, y - 2); ctx.lineTo(x + 4, y + 2); }
     ctx.fill();
-    ctx.strokeStyle = cgs_col;
-    ctx.lineWidth = 1;
-    roundRect(ctx, box_x, box_y, box_w, box_h, irad);
-    ctx.stroke();
-  }
-  ctx.fillStyle = cgs_col;
-  ctx.textBaseline = 'middle';
-  ctx.textAlign = 'center';
-  ctx.font = 'bold 11px "Segoe UI", system-ui, sans-serif';
-  ctx.fillText(cgs_txt, box_x + Math.round(box_w / 2), cgs_cy);
-
-  // Trend arrow + delta/age (only when CGM active)
-  if (nsUrl.length >= 4) {
-    var arrow_x = box_x + box_w + SX(3);
-    drawTrendArrow(ctx, cgmTrend, arrow_x, y_cgs + 1, SX(11), cgs_h - 2, colCgmInfo);
-    ctx.fillStyle = colCgmInfo;
-    ctx.font = '9px "Segoe UI", system-ui, sans-serif';
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'left';
-    ctx.fillText(cgmDelta + ' ' + cgmAge + 'm', arrow_x + SX(12), cgs_cy);
   }
 
-  // DOWN label
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font = '8px "Segoe UI", system-ui, sans-serif';
-  ctx.textBaseline = 'middle';
-  ctx.textAlign = 'right';
-  ctx.fillText('DOWN ▶', W - SX(4), cgs_cy);
+  // 1. case + red ring
+  ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = colAccent; roundRect(ctx, 0, 16, W, 187, 14); ctx.fill();
+  ctx.fillStyle = '#000000'; roundRect(ctx, 3, 20, W - 6, 178, 12); ctx.fill();
 
-  // ── 13. Bottom red band ───────────────────────────────────
-  ctx.fillStyle = colAccent;
-  ctx.fillRect(0, y_rs2, W, y_ban - y_rs2);
+  // 2. top labels ("2" of "TIME 2" in blue)
+  txt(labelTL, 6, 1, 'bold 13px sans-serif', colLabelTop);
+  var sp = labelTR.lastIndexOf(' ');
+  if (sp > 0 && labelTR.length - sp - 1 <= 2) {
+    txt(labelTR.slice(sp + 1), W - 6, 1, 'bold 13px sans-serif', '#55AAFF', 'right');
+    ctx.font = 'bold 13px sans-serif';
+    var sw = ctx.measureText(labelTR.slice(sp + 1)).width;
+    txt(labelTR.slice(0, sp), W - 9 - sw, 1, 'bold 13px sans-serif', colLabelTop, 'right');
+  } else {
+    txt(labelTR, W - 6, 1, 'bold 13px sans-serif', colLabelTop, 'right');
+  }
 
-  // ── 14. E-PAPER DISPLAY ───────────────────────────────────
-  var ban_h = H - y_ban;
-  ctx.fillStyle = '#FFFF00';
-  ctx.font = 'bold 9px "Segoe UI", system-ui, sans-serif';
-  ctx.textBaseline = 'middle';
-  ctx.textAlign = 'center';
-  ctx.fillText('E-PAPER DISPLAY', W / 2, y_ban + Math.round(ban_h / 2));
+  // 3. button labels
+  arrow(8, 31, false); txt('LIGHT', 14, 26, '9px sans-serif', '#FFFFFF');
+  txt('pebble', W / 2, 19, 'bold 17px sans-serif', '#FFFF00', 'center');
+  txt('UP', W - 15, 20, '9px sans-serif', '#FFFFFF', 'right'); arrow(W - 8, 25, true);
+  txt('ENTER', W - 15, 31, '9px sans-serif', '#FFFFFF', 'right'); arrow(W - 8, 36, true);
+
+  // 4. LCD frame + panel + row tint
+  ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 3;
+  roundRect(ctx, 6, 43, W - 12, 121, 8); ctx.stroke();
+  ctx.fillStyle = colBg; roundRect(ctx, 10, 46, W - 20, 105, 5); ctx.fill();
+  ctx.fillStyle = colTime2Bg; roundRect(ctx, 12, 47, W - 24, 29, 4); ctx.fill();
+
+  // 5. date, 6. comp box
+  lcd('88-88', dateStr, 14, 54, 16, 'left');
+  ctx.strokeStyle = colGhost; ctx.lineWidth = 2;
+  roundRect(ctx, 90, 49, 96, 26, 5); ctx.stroke();
+  var compGhost = cgmSlot ? '8888' : '88888';
+  var compRight = cgmSlot ? 170 : 184;
+  if (ghostComp) txt(compGhost, compRight, 51, '22px ' + DS, colGhost, 'right');
+  txt(compStr, compRight, 51, 'bold 22px ' + DS, cgmCol, 'right');
+  if (cgmSlot) drawTrendArrow(ctx, cgmTrend, 169, 52, 14, 20, cgmCol);
+
+  // 7. time (+ seconds), "P"
+  if (showSec) {
+    lcd('88:88', timeStr, 14, 87, 38, 'left');
+    lcd('88', pad2(now.getSeconds()), 186, 105, 22, 'right');
+  } else {
+    lcd('88:88', timeStr, W / 2, 81, 48, 'center');
+  }
+  if (ghostEnabled) txt('P', 14, 74, '9px sans-serif', colGhost);
+
+  // 8. info strip
+  var midX = 102;
+  ctx.strokeStyle = colFg; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(12, 135.5); ctx.lineTo(W - 13, 135.5);
+  ctx.moveTo(midX + 0.5, 135); ctx.lineTo(midX + 0.5, 151); ctx.stroke();
+  txt('BAT', 14, 137, '9px sans-serif', colFg);
+  var lit = Math.round(battPct / 10);
+  for (var s = 0; s < 10; s++) {
+    if (s >= lit && !ghostEnabled) continue;
+    ctx.fillStyle = s < lit ? colFg : colGhost;
+    ctx.fillRect(35 + s * 6, 139, 4, 9);
+  }
+
+  // 9. weekday squares + letters
+  var wx = midX + 4, step = Math.floor((186 - wx) / 7);
+  for (var i = 0; i < 7; i++) {
+    var dx = wx + i * step + (step - 7) / 2;
+    ctx.fillStyle = i === todayIdx ? colFg : colGhost;
+    ctx.fillRect(dx, 140, 7, 7);
+    txt(daysArr[i], wx + i * step + step / 2, 152, '9px sans-serif', '#FFFFFF', 'center');
+  }
+
+  // 10. CGM status · heart · DOWN
+  txt('CGM ACTIVE', 10, 164, 'bold 13px sans-serif', colCgmBanner);
+  txt(cgmDelta + '  ' + cgmAge + ' MIN', 10, 178, 'bold 13px sans-serif', colCgmInfo);
+  ctx.fillStyle = '#FFFF00'; ctx.beginPath();
+  ctx.arc(116, 176, 6, 0, Math.PI * 2); ctx.arc(128, 176, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(110, 178); ctx.lineTo(134, 178); ctx.lineTo(122, 191); ctx.fill();
+  drawTrendArrow(ctx, cgmTrend, 115, 171, 14, 14, '#000000');
+  txt('DOWN', W - 15, 176, '9px sans-serif', '#FFFFFF', 'right'); arrow(W - 8, 181, true);
+
+  // 11. yellow banner
+  txt(labelBot, W / 2, 207, 'bold 13px sans-serif', '#FFFF00', 'center');
 }
 
 // ── Load config from Pebble URL param ─────────────────────────────────────
@@ -1225,7 +1031,10 @@ loadConfig();
 bindPreviewUpdates();
 
 // Wait for fonts, then draw
-document.fonts.ready.then(function() { drawPreview(); });
+// Canvas text does not trigger web-font loading reliably: load both DSEG
+// weights explicitly, then redraw
+Promise.all([document.fonts.load('22px "DSEG14"'), document.fonts.load('bold 22px "DSEG14"')])
+  .then(function() { drawPreview(); }, function() {});
 // Fallback draw immediately too
 drawPreview();
 </script>

@@ -1,7 +1,7 @@
 {
   "name": "casiocgm",
   "author": "simon",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "keywords": [
     "pebble-app"
   ],
@@ -40,10 +40,10 @@
         },
         {
           "type": "font",
-          "name": "FONT_DSEG_DATE14",
+          "name": "FONT_DSEG_DATE16",
           "file": "fonts/DSEG14Classic-Bold.ttf",
           "characterRegex": "[0-9. -]",
-          "size": 14
+          "size": 16
         },
         {
           "type": "font",
