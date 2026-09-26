@@ -2,7 +2,7 @@
 
 A Pebble watchface styled after the classic **Casio G-Shock digital watch**, with real-time **Nightscout CGM** blood glucose integration.
 
-![CasioCGM Screenshot](resources/screenshots/Screenshot.jpeg)
+![CasioCGM Screenshot](resources/screenshots/casiocgm-v2.2.1.png)
 
 ---
 

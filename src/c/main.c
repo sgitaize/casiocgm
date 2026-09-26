@@ -296,7 +296,7 @@ static void battery_state_handler(BatteryChargeState state) {
 //   16..203  red ring (top band, thin side rails, bottom band)
 //   20..43   ◄LIGHT · pebble · UP► / ENTER► (two rows)
 //   43..164  LCD: white outer frame, white panel
-//     49..75   date (DSEG 16) | comp box (DSEG 22, rounded border)
+//     48..77   date (DSEG 16) | comp box (DSEG 22, rounded border)
 //     77..133  HH:MM (DSEG 48; 38 + small seconds when enabled), "P" (PM)
 //    135..151  info strip: BAT + 10 bars | 7 day squares
 //    151..164  weekday letters on the dark frame band
@@ -356,8 +356,8 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   int y_btn     = PY(20);    // button label zone
   int y_lcd     = PY(43);    // LCD outer frame
   int y_in      = PY(46);    // white panel
-  int y_dr      = PY(49);    // date / comp row
-  int dr_h      = PY(26);
+  int y_dr      = PY(48);    // date / comp row
+  int dr_h      = PY(29);    // 2 px border + 2 px air around the 21 px ink
   int y_time    = PY(77);    // time row
   int y_info    = PY(135);   // info strip separator
   int y_in_end  = PY(151);   // panel end
@@ -485,7 +485,7 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     graphics_draw_round_rect(ctx, GRect(comp_x, y_dr, comp_w, dr_h), PX(5));
     graphics_context_set_stroke_width(ctx, 1);
 
-    int ty = y_dr + (dr_h - 22) / 2 - PY(3);
+    int ty = y_dr + (dr_h - 22) / 2 + PY(1);   // ink centred between the borders
     if (cgm_valid) {
       // value right-aligned in 4 cells + trend arrow in the 5th
       int arw_w = PX(14);
@@ -556,7 +556,7 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   {
     int cy = y_info + strip_h / 2;
     graphics_context_set_text_color(ctx, col_fg);
-    graphics_draw_text(ctx, "BAT", f_lbl, GRect(x_l, cy - 7, PX(20), 11),
+    graphics_draw_text(ctx, "BAT", f_lbl, GRect(x_l, cy - 5, PX(20), 11),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
     int n_seg = 10;
     int bx = x_l + PX(21);

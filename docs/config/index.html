@@ -854,11 +854,11 @@ function drawPreview() {
   // 5. date, 6. comp box
   lcd('88-88', dateStr, 14, 54, 16, 'left');
   ctx.strokeStyle = colGhost; ctx.lineWidth = 2;
-  roundRect(ctx, 90, 49, 96, 26, 5); ctx.stroke();
+  roundRect(ctx, 90, 48, 96, 29, 5); ctx.stroke();
   var compGhost = cgmSlot ? '8888' : '88888';
   var compRight = cgmSlot ? 170 : 184;
-  if (ghostComp) txt(compGhost, compRight, 51, '22px ' + DS, colGhost, 'right');
-  txt(compStr, compRight, 51, 'bold 22px ' + DS, cgmCol, 'right');
+  if (ghostComp) txt(compGhost, compRight, 54, '22px ' + DS, colGhost, 'right');
+  txt(compStr, compRight, 54, 'bold 22px ' + DS, cgmCol, 'right');
   if (cgmSlot) drawTrendArrow(ctx, cgmTrend, 169, 52, 14, 20, cgmCol);
 
   // 7. time (+ seconds), "P"
@@ -875,7 +875,7 @@ function drawPreview() {
   ctx.strokeStyle = colFg; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(12, 135.5); ctx.lineTo(W - 13, 135.5);
   ctx.moveTo(midX + 0.5, 135); ctx.lineTo(midX + 0.5, 151); ctx.stroke();
-  txt('BAT', 14, 137, '9px sans-serif', colFg);
+  txt('BAT', 14, 139, '9px sans-serif', colFg);
   var lit = Math.round(battPct / 10);
   for (var s = 0; s < 10; s++) {
     if (s >= lit && !ghostEnabled) continue;
