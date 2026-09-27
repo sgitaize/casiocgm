@@ -1,1 +1,1 @@
-Smarter CGM fetching saves phone battery: the upload delay of your Nightscout uploader is learned, so readings are fetched right when they arrive (slow uploader: ~150 -> ~28 requests/h). Time centred between complication box and info strip. New default colour for high glucose (#A96800).
+New store screenshots. No functional changes since 2.3.1: smarter CGM fetching (learned upload delay, saves phone battery), time centred between complication box and info strip, new default colour for high glucose (#A96800).
