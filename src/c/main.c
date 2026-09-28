@@ -725,8 +725,26 @@ static void app_connection_handler(bool connected) {
 }
 
 // ── Tick ──────────────────────────────────────────────────────────────────
+// Watchdog: the phone's fetch chain is a single JS setTimeout; when the
+// phone suspends PebbleKit JS (or an XHR never returns) it silently stops
+// and the value only came back after reloading the watchface. If the
+// reading is older than interval + 3 min, ask the phone (an AppMessage
+// wakes the JS), at most every 3 min.
+static time_t s_last_bg_req_ts = 0;
+
+static void bg_watchdog(void) {
+  time_t now = time(NULL);
+  int interval_sec = s_ns_stale_min * 30;  // stale = 2x sensor interval
+  if (interval_sec < 60) interval_sec = 60;
+  if (now - s_cgm_ts < interval_sec + 180 || now - s_last_bg_req_ts < 180) return;
+  if (!connection_service_peek_pebble_app_connection()) return;
+  s_last_bg_req_ts = now;
+  request_bg_fetch();
+}
+
 static void tick_handler(struct tm *tick_time, TimeUnits units) {
   if (units & MINUTE_UNIT) {
+    bg_watchdog();
 #if defined(PBL_HEALTH)
     HealthServiceAccessibilityMask m;
     m = health_service_metric_accessible(HealthMetricStepCount,

@@ -319,7 +319,24 @@ function fetchNightscout() {
   var req = new XMLHttpRequest();
   req.open('GET', apiUrl, true);
   req.timeout = 15000;
+  // Guard: on some phones an XHR never calls onload/onerror/ontimeout;
+  // the fetch chain (one setTimeout) would then stop for good.
+  var done = false;
+  var guard = setTimeout(function() {
+    if (done) return;
+    done = true;
+    console.log('[CasioCGM] Fetch hung, retrying');
+    try { req.abort(); } catch (e) {}
+    planNextBGFetch(null);
+  }, 25000);
+  function finish() {
+    if (done) return false;
+    done = true;
+    clearTimeout(guard);
+    return true;
+  }
   req.onload = function() {
+    if (!finish()) return;
     if (req.status === 200) {
       try {
         var data = JSON.parse(req.responseText);
@@ -395,11 +412,13 @@ function fetchNightscout() {
     }
   };
   req.onerror = function() {
+    if (!finish()) return;
     console.log('[CasioCGM] Fetch error');
     sendBgStatus(BG_STATUS.NO_CONN);
     planNextBGFetch(null);
   };
   req.ontimeout = function() {
+    if (!finish()) return;
     console.log('[CasioCGM] Fetch timeout');
     sendBgStatus(BG_STATUS.NO_CONN);
     planNextBGFetch(null);
