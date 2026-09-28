@@ -181,9 +181,13 @@ function sendConfig() {
 //     previous fetch longer ago but already later than the learned lag →
 //     raise to the middle of that window; otherwise only an upper bound →
 //     lag = min(lag, sample)
-//   - if the learned fetch is ≥ 1 min after the supercgm time (+30 s), that
-//     time is probed once per reading; a hit there means the uploader is
-//     fast again (lag drops at once)
+//   - probe once per reading at half the learned lag (min. the supercgm
+//     +30 s): a hit there halves the lag, so a lag learned in a slow phase
+//     drops back within a few readings (before: probe fixed at +30 s, so an
+//     uploader at e.g. 45 s never lowered it → values shown minutes late,
+//     watch showed OLD BG for > 10 min)
+//   - lag capped at one interval (was 2x: the fetch then fell after the
+//     reading went stale)
 //   - overdue: poll every 15 s, after 2 min overdue (sensor gap/warm-up)
 //     only every 60 s
 var LAG_KEY        = 'casiocgm_upload_lag';
@@ -205,7 +209,7 @@ function learnUploadLag(bgTsSec, serverNowSec, sensorSec) {
     } else {
       lagSec = Math.min(lagSec, sample);
     }
-    lagSec = Math.min(lagSec, sensorSec * 2);
+    lagSec = Math.min(lagSec, sensorSec);
     try { localStorage.setItem(LAG_KEY, String(lagSec)); } catch (e) {}
   }
   prevMissed = (bgTsSec === lastSeenTsSec);
@@ -242,11 +246,11 @@ function planNextBGFetch(lastBgTsSec, serverNowSec) {
   // supercgm: +30 s; with a learned upload lag: lag + 10 s margin
   var offsetSec = Math.max(30, lagSec + 10);
   var dueSec    = lastBgTsSec + sensorSec + offsetSec;
-  var probeSec  = lastBgTsSec + sensorSec + 30;
+  var probeSec  = lastBgTsSec + sensorSec + Math.max(30, Math.round(lagSec / 2));
   var delay     = (dueSec - nowSec) * 1000;
-  // learned fetch ≥ 1 min after the supercgm time: probe that time once
-  // per reading, so a faster uploader is noticed right away
-  if (dueSec - probeSec >= 60 && probeSec > nowSec + 5) {
+  // probe at half the lag once per reading, so a faster uploader is
+  // noticed quickly (lag halves on every hit)
+  if (dueSec - probeSec >= 30 && probeSec > nowSec + 5) {
     delay = (probeSec - nowSec) * 1000;
   }
   if (delay < 15000) {

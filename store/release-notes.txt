@@ -1,1 +1,1 @@
-New store screenshots. No functional changes since 2.3.1: smarter CGM fetching (learned upload delay, saves phone battery), time centred between complication box and info strip, new default colour for high glucose (#A96800).
+Fix: CGM value could stay out of date for over 10 minutes. After a phase of slow Nightscout uploads, the learned upload delay never dropped again, so every value came minutes late and the watch showed OLD BG. The delay is now re-checked on every reading (probe at half the delay) and recovers within a few readings.
