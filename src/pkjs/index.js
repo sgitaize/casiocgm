@@ -141,7 +141,7 @@ function sendConfig() {
   msg[K.COLOR_CGM_HIGH]  = colorToInt(config.colorCgmHigh|| '#A96800');
   msg[K.COLOR_CGM_LOW]   = colorToInt(config.colorCgmLow || '#FF0000');
   msg[K.COMPLICATION]    = parseInt(config.complication) || 0;
-  msg[K.LABEL_TOP_LEFT]  = config.labelTopLeft   || 'QUARTZ';
+  msg[K.LABEL_TOP_LEFT]  = config.labelTopLeft   || 'CGM';
   msg[K.LABEL_TOP_RIGHT] = config.labelTopRight  || 'TIME 2';
   msg[K.LABEL_BOTTOM]    = config.labelBottom    || 'E-PAPER DISPLAY';
   msg[K.FIRST_WEEKDAY]   = parseInt(config.firstWeekday) || 0;
@@ -495,6 +495,11 @@ Pebble.addEventListener('ready', function() {
     try { config = applyDefaults(JSON.parse(stored)); } catch(e) {}
   } else {
     config = applyDefaults({});
+  }
+  // v2.3.6: old default label QUARTZ → CGM (custom labels stay untouched)
+  if (config.labelTopLeft === 'QUARTZ') {
+    config.labelTopLeft = 'CGM';
+    localStorage.setItem('casiocgm_config', JSON.stringify(config));
   }
   sendConfig();
   scheduleFetch();

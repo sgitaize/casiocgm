@@ -78,7 +78,7 @@ static int  s_color_cgm_high  = 0xA96800;  // shown as 0xAA5500 (64-colour palet
 static int  s_color_cgm_low   = 0xAA0000;
 
 static int  s_complication    = 0;
-static char s_label_tl[32]    = "QUARTZ";
+static char s_label_tl[32]    = "CGM";
 static char s_label_tr[32]    = "TIME 2";
 static char s_label_bot[32]   = "E-PAPER DISPLAY";
 static int  s_first_weekday   = 0;
@@ -292,7 +292,7 @@ static void battery_state_handler(BatteryChargeState state) {
 //
 // Layout follows the Casio "TIME 2 / HEART RATE MONITOR" original, in emery
 // pixels (200×228; PX/PY scale for other sizes):
-//    0..16   QUARTZ (left) / TIME 2 (right, suffix blue)   – editable labels
+//    0..16   CGM (left) / TIME 2 (right, suffix blue)   – editable labels
 //   16..203  red ring (top band, thin side rails, bottom band)
 //   20..43   ◄LIGHT · pebble · UP► / ENTER► (two rows)
 //   43..164  LCD: white outer frame, white panel
@@ -385,7 +385,7 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   graphics_fill_rect(ctx, GRect(ring_s, y_btn, W - 2 * ring_s, y_rs2 - y_btn),
                      PX(12), GCornersAll);
 
-  // ── 2. Top labels: QUARTZ / TIME 2 (editable) ─────────────────────────
+  // ── 2. Top labels: CGM / TIME 2 (editable) ─────────────────────────
   {
     GColor col_lbl = color_from_int(s_color_label_top);
     graphics_context_set_text_color(ctx, col_lbl);

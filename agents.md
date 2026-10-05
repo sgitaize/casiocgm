@@ -65,7 +65,7 @@ Must be identical in both files.
 | KEY_COLOR_CGM_HIGH  | 10  | config→watch  | int    | CGM high color                 |
 | KEY_COLOR_CGM_LOW   | 11  | config→watch  | int    | CGM low color                  |
 | KEY_COMPLICATION    | 12  | config→watch  | int    | 0=CGM,1=Steps,2=HR,3=Wx,4=Bat,5=Date2 |
-| KEY_LABEL_TOP_LEFT  | 13  | config→watch  | string | Top-left text (default QUARTZ) |
+| KEY_LABEL_TOP_LEFT  | 13  | config→watch  | string | Top-left text (default CGM) |
 | KEY_LABEL_TOP_RIGHT | 14  | config→watch  | string | Top-right text (default TIME 2)|
 | KEY_LABEL_BOTTOM    | 15  | config→watch  | string | Bottom banner text             |
 | KEY_FIRST_WEEKDAY   | 16  | config→watch  | int    | 0=Sun, 1=Mon                  |
@@ -98,7 +98,7 @@ block at the top of `main.c`.)
 ## Watch Layout (emery 200×228, modelled on the Casio "TIME 2 / HEART RATE MONITOR" photo)
 
 ```
-  0..16   QUARTZ (s_label_tl)                 TIME 2 (s_label_tr, last word blue)
+  0..16   CGM (s_label_tl)                 TIME 2 (s_label_tr, last word blue)
  16..203  red ring (accent colour): top band, thin side rails, bottom band
  20..43   ◄LIGHT        pebble (yellow)        UP► / ENTER► (two rows)
  43..164  LCD: white outer frame (3 px), white panel

@@ -50,7 +50,7 @@ Six selectable slots — shown permanently; shake cycles to the secondary slot:
 - Shows CGM status below LCD: **CGM Active** / **CGM Offline** / **No URL**
 
 ### Labels & banners
-- **Top banner** (above red band) — two free-text labels (default: `QUARTZ` left, `TIME 2` right) with configurable color
+- **Top banner** (above red band) — two free-text labels (default: `CGM` left, `TIME 2` right) with configurable color
 - **"pebble" center label** — Gothic Bold, yellow by default, matching the E-Paper banner style
 - **Button labels** — ◄LIGHT, UP►, SELECT►, DOWN► around the LCD frame
 - **E-Paper bottom banner** — `E-PAPER DISPLAY` in yellow on color platforms; configurable label text above it
@@ -67,7 +67,7 @@ All colors configurable via the web config page:
 | CGM high | `#FFAA00` | CGM value above high threshold |
 | CGM low | `#AA0000` | CGM value below low threshold + offline |
 | Ghost segments | `#ADADAD` | unlit LCD segment color |
-| Top banner labels | `#FFFFFF` | QUARTZ / TIME 2 text color |
+| Top banner labels | `#FFFFFF` | CGM / TIME 2 text color |
 
 ### Platform
 Built exclusively for the **Pebble Time 2** (emery, 200×228 px) — DSEG14 Bold fonts, full-width time display, 22 px comp box.
@@ -108,7 +108,7 @@ Available in **English and German** (toggle top-right).
 ### Labels
 | Setting | Default | Description |
 |---|---|---|
-| Top left | `QUARTZ` | Left label in the top black strip |
+| Top left | `CGM` | Left label in the top black strip |
 | Top right | `TIME 2` | Right label in the top black strip |
 | Bottom banner | `CGM Enabled` | Text in the E-Paper accent strip |
 
@@ -122,7 +122,7 @@ Available in **English and German** (toggle top-right).
 | CGM high | `#FFAA00` | Value color when BG ≥ high threshold |
 | CGM low | `#AA0000` | Value color when BG ≤ low threshold or stale |
 | Ghost segments | `#ADADAD` | Unlit LCD segment color — lighter = more subtle |
-| Top banner labels | `#FFFFFF` | Color of QUARTZ / TIME 2 text |
+| Top banner labels | `#FFFFFF` | Color of CGM / TIME 2 text |
 
 ---
 
@@ -152,7 +152,7 @@ If you find CasioCGM useful, a small donation is always appreciated!
 ## Motivation & Credits
 
 - **Why:** as a diabetic you want a cool watchface too. CasioCGM combines a retro Casio look with live Nightscout CGM data.
-- **Design inspired by** [*Quartz by Dalpek*](https://apps.repebble.com/quartz-by-dalpek_31cfe29ecd814df4b5ca8bb4) — thanks for the great retro LCD design! (No code was taken; the watchface is written from scratch.)
+- **Design inspired by** [*Quartz by Dalpek*](https://apps.repebble.com/quartz-by-dalpek_31cfe29ecd814df4b5ca8bb4) — thanks for the great retro LCD design! (No code was taken; the watchface is written from scratch. The design is closely based on Quartz.)
 - **CGM logic** ported from [Nightscout-supercgm](https://github.com/sgitaize/Nightscout-supercgm).
 - **~95 % vibe coded** with [Claude Code](https://claude.com/claude-code).
 

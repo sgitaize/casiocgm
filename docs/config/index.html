@@ -369,8 +369,8 @@
     <div class="section-body">
       <div class="row2">
         <div class="field">
-          <label data-en="Top left (e.g. QUARTZ)" data-de="Oben links (z.B. QUARTZ)">Top left</label>
-          <input type="text" id="labelTopLeft" value="QUARTZ" maxlength="10">
+          <label data-en="Top left (e.g. CGM)" data-de="Oben links (z.B. CGM)">Top left</label>
+          <input type="text" id="labelTopLeft" value="CGM" maxlength="10">
         </div>
         <div class="field">
           <label data-en="Top right (e.g. TIME 2)" data-de="Oben rechts (z.B. TIME 2)">Top right</label>
@@ -498,7 +498,7 @@
             <input type="color" id="colorLabelTopPicker" value="#FFFFFF" oninput="syncColor('colorLabelTop','colorLabelTopPicker')">
             <input type="text"  id="colorLabelTop"        value="#FFFFFF" maxlength="7" oninput="syncColor('colorLabelTopPicker','colorLabelTop',true)">
           </div>
-          <p class="hint" data-en="Colour of the QUARTZ / TIME 2 labels in the top strip." data-de="Farbe der QUARTZ / TIME 2 Labels im oberen Streifen.">QUARTZ / TIME 2 label text.</p>
+          <p class="hint" data-en="Colour of the CGM / TIME 2 labels in the top strip." data-de="Farbe der CGM / TIME 2 Labels im oberen Streifen.">CGM / TIME 2 label text.</p>
         </div>
 
       </div>
@@ -755,7 +755,7 @@ function drawPreview() {
   var colTime2Bg       = cv('colorTime2Bg',       '#FFFFFF');
   var backlightEnabled = parseInt(cv('backlightEnabled', '1'));
   var colBacklight     = cv('colorBacklight',     '#FFFFFF');
-  var labelTL      = cv('labelTopLeft',   'QUARTZ');
+  var labelTL      = cv('labelTopLeft',   'CGM');
   var labelTR      = cv('labelTopRight',  'TIME 2');
   var dateFormat   = parseInt(cv('dateFormat',   '0'));
   var firstWeekday = parseInt(cv('firstWeekday', '0'));

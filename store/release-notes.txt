@@ -1,1 +1,1 @@
-Fix: CGM value could stop updating until the watchface was reloaded. If the phone paused the fetch loop (or a request never returned), no new value was fetched. The watch now asks the phone for a new value when the reading is older than the interval + 3 min, and hung requests are retried.
+Top-left label now shows CGM by default instead of QUARTZ (the name of Quartz by Dalpek, which inspired the design). Existing installs that still use the old default are switched automatically; custom labels stay untouched. New screenshots.
