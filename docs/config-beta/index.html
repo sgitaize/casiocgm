@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>CasioCGM Config (Beta)</title>
+<style>
+  @font-face {
+    font-family: 'DSEG14';
+    src: url('fonts/DSEG14Classic-Bold.ttf') format('truetype');
+    font-weight: bold;
+    font-style: normal;
+  }
+  @font-face {
+    font-family: 'DSEG14';
+    src: url('fonts/DSEG14Classic-Regular.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+  }
+
+  :root {
+    --bg:       #0e0e0e;
+    --panel:    #161616;
+    --card:     #1c1c1c;
+    --red:      #cc1111;
+    --red-dim:  #7a0a0a;
+    --gold:     #c8921a;
+    --text:     #d8d8d8;
+    --text2:    #787878;
+    --border:   #2e2e2e;
+    --input-bg: #111;
+    --green:    #22aa44;
+    --radius:   6px;
+    --font-mono: 'Courier New', 'Lucida Console', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    padding-bottom: 32px;
+  }
+
+  /* ── Header ─────────────────────────────────────────────── */
+  header {
+    background: var(--panel);
+    border-top: 4px solid var(--red);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .header-title { display: flex; flex-direction: column; gap: 1px; }
+  .header-label {
+    font-size: 0.6rem; letter-spacing: 3px; color: var(--text2);
+    font-family: var(--font-mono); text-transform: uppercase;
+  }
+  .header-name {
+    font-size: 1.25rem; font-weight: bold; letter-spacing: 3px;
+    color: var(--text); font-family: var(--font-mono);
+  }
+  .header-name span { color: var(--red); }
+  #lang-btn {
+    background: transparent; color: var(--text2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 5px 12px; cursor: pointer; font-size: 0.8rem;
+  }
+  #lang-btn:hover { border-color: var(--red); color: var(--text); }
+  .header-stripe {
+    height: 3px;
+    background: linear-gradient(90deg, var(--red) 0%, var(--red-dim) 60%, transparent 100%);
+  }
+
+  /* ── Container ───────────────────────────────────────────── */
+  .container { max-width: 480px; margin: 0 auto; padding: 14px 14px 0; }
+
+  /* ── Preview panel ───────────────────────────────────────── */
+  .preview-panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+  .preview-header {
+    padding: 9px 14px;
+    font-size: 0.72rem; letter-spacing: 2px; color: var(--text2);
+    text-transform: uppercase; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--font-mono); border-left: 3px solid var(--red);
+    color: var(--text); user-select: none;
+  }
+  .preview-header .arrow { font-size: 0.6rem; transition: transform 0.18s; }
+  .preview-header.collapsed .arrow { transform: rotate(-90deg); }
+  .preview-body {
+    padding: 14px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  .preview-body.hidden { display: none; }
+  .watch-frame {
+    background: #1a1a1a;
+    border-radius: 18px;
+    padding: 10px 8px;
+    border: 2px solid #333;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+    display: inline-block;
+  }
+  #previewCanvas {
+    display: block;
+    border-radius: 4px;
+    image-rendering: pixelated;
+  }
+  .preview-hint {
+    font-size: 0.65rem; color: var(--text2); text-align: center;
+    font-family: var(--font-mono);
+  }
+
+  /* ── Section cards ───────────────────────────────────────── */
+  .section {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); margin-bottom: 10px; overflow: hidden;
+  }
+  .section-header {
+    padding: 9px 14px; font-size: 0.72rem; letter-spacing: 2px; color: var(--text2);
+    text-transform: uppercase; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--font-mono); border-left: 3px solid transparent;
+    transition: border-color 0.15s, color 0.15s; user-select: none;
+  }
+  .section-header:hover  { color: var(--text); border-left-color: var(--red); }
+  .section-header.open   { color: var(--text); border-left-color: var(--red); }
+  .section-header .arrow { font-size: 0.6rem; transition: transform 0.18s; }
+  .section-header.open .arrow { transform: rotate(90deg); }
+  .section-body { padding: 12px 14px; display: none; border-top: 1px solid var(--border); }
+  .section-body.open { display: block; }
+
+  /* ── Form fields ─────────────────────────────────────────── */
+  .field { margin-bottom: 12px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label {
+    display: block; font-size: 0.72rem; color: var(--text2);
+    margin-bottom: 5px; letter-spacing: 0.5px;
+  }
+  .field input[type=text], .field input[type=url],
+  .field input[type=number], .field select {
+    width: 100%; background: var(--input-bg); border: 1px solid var(--border);
+    border-radius: 4px; color: var(--text); padding: 8px 10px;
+    font-size: 0.88rem; outline: none; font-family: inherit;
+  }
+  .field input:focus, .field select:focus { border-color: var(--red); }
+  .field input[type=color] {
+    width: 44px; height: 34px; border: 1px solid var(--border);
+    border-radius: 4px; cursor: pointer; background: var(--input-bg); padding: 2px;
+  }
+  .color-row { display: flex; align-items: center; gap: 8px; }
+  .color-row input[type=text] { flex: 1; font-family: var(--font-mono); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .hint { font-size: 0.68rem; color: var(--text2); margin-top: 4px; line-height: 1.4; }
+
+  /* ── Buttons ─────────────────────────────────────────────── */
+  .btn-row { display: flex; gap: 10px; margin-top: 14px; margin-bottom: 14px; }
+  .btn {
+    flex: 1; padding: 12px; border: none; border-radius: var(--radius);
+    font-size: 0.9rem; cursor: pointer; font-weight: bold; letter-spacing: 1px;
+    font-family: var(--font-mono); text-transform: uppercase; transition: opacity 0.15s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn-save   { background: var(--red);  color: #fff; }
+  .btn-cancel { background: var(--card); color: var(--text2); border: 1px solid var(--border); }
+
+  /* ── Donate ──────────────────────────────────────────────── */
+  .donate { text-align: center; padding: 14px 0 6px; font-size: 0.75rem; color: var(--text2); }
+  .donate a {
+    display: inline-block; margin-top: 7px; background: #009cde; color: #fff;
+    text-decoration: none; padding: 7px 18px; border-radius: 20px;
+    font-weight: bold; font-size: 0.8rem; letter-spacing: 1px;
+  }
+  .donate a:hover { background: #007ab8; }
+
+  /* ── Version footer ──────────────────────────────────────── */
+  .footer {
+    text-align: center; font-size: 0.62rem; color: #3a3a3a;
+    font-family: var(--font-mono); letter-spacing: 1px; margin-top: 8px;
+  }
+
+  /* ── Color section group label ───────────────────────────── */
+  .color-group-label {
+    font-size: 0.62rem; letter-spacing: 2px; color: #555; text-transform: uppercase;
+    font-family: var(--font-mono); margin-bottom: 8px; margin-top: 14px;
+    border-bottom: 1px solid #2a2a2a; padding-bottom: 4px;
+  }
+  .color-group-label:first-child { margin-top: 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-title">
+    <span class="header-label">Watchface Config</span>
+    <span class="header-name">CASIO<span>CGM</span></span>
+  </div>
+  <button id="lang-btn" onclick="toggleLang()">DE</button>
+</header>
+<div class="header-stripe"></div>
+
+<div class="container">
+
+  <!-- Live Preview ───────────────────────────────────────── -->
+  <div class="preview-panel">
+    <div class="preview-header" id="preview-toggle" onclick="togglePreview()">
+      <span data-en="LIVE PREVIEW" data-de="LIVE-VORSCHAU">LIVE PREVIEW</span>
+      <span class="arrow">▼</span>
+    </div>
+    <div class="preview-body" id="preview-body">
+      <div class="watch-frame">
+        <canvas id="previewCanvas" width="200" height="228"></canvas>
+      </div>
+      <div class="preview-hint" data-en="Updates live as you change settings below" data-de="Aktualisiert sich live beim Ändern der Einstellungen">Updates live as you change settings below</div>
+    </div>
+  </div>
+
+  <!-- Nightscout ─────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-header open" onclick="toggleSection(this)">
+      <span data-en="NIGHTSCOUT / CGM" data-de="NIGHTSCOUT / CGM">NIGHTSCOUT / CGM</span>
+      <span class="arrow">▶</span>
+    </div>
+    <div class="section-body open">
+      <div class="field">
+        <label data-en="Data source" data-de="Datenquelle">Data source</label>
+        <select id="bgSource" onchange="updateSourceFields()">
+          <option value="nightscout">Nightscout</option>
+          <option value="openminipump" data-en="openMinipump (local, this iPhone)" data-de="openMinipump (lokal, dieses iPhone)">openMinipump (local, this iPhone)</option>
+        </select>
+        <p class="hint" data-en="Beta: openMinipump reads a MiniMed 780G directly and serves a Nightscout-compatible API on the phone." data-de="Beta: openMinipump liest eine MiniMed 780G direkt aus und stellt auf dem Handy eine Nightscout-kompatible API bereit.">Beta.</p>
+      </div>
+      <div id="nsFields">
+      <div class="field">
+        <label data-en="Nightscout URL" data-de="Nightscout-URL">Nightscout URL</label>
+        <input type="url" id="nsUrl" placeholder="https://your-site.ns.10be.de">
+      </div>
+      <div class="field">
+        <label data-en="API Token (optional)" data-de="API-Token (optional)">API Token (optional)</label>
+        <input type="text" id="nsToken" placeholder="your-token">
+      </div>
+      </div>
+      <div id="ompFields" style="display:none">
+      <div class="field">
+        <label data-en="openMinipump server" data-de="openMinipump-Server">openMinipump server</label>
+        <input type="url" id="ompUrl" placeholder="http://127.0.0.1:17580">
+        <p class="hint" data-en="Default http://127.0.0.1:17580 (the app on the same iPhone). Note: iOS pauses the app in the background between pump updates, values can then arrive late." data-de="Standard http://127.0.0.1:17580 (die App auf demselben iPhone). Hinweis: iOS pausiert die App im Hintergrund zwischen den Pumpen-Updates, Werte kommen dann ggf. verspätet.">Default http://127.0.0.1:17580.</p>
+      </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label data-en="Units" data-de="Einheit">Units</label>
+          <select id="nsUnits">
+            <option value="0">mg/dL</option>
+            <option value="1">mmol/L</option>
+          </select>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label data-en="High threshold" data-de="Hoch-Schwellwert">High threshold</label>
+          <input type="number" id="nsHigh" value="180" min="1" max="400" step="any">
+          <p class="hint" data-en="In the selected unit (e.g. 180 or 10.0)." data-de="In der gewählten Einheit (z.B. 180 oder 10,0).">In the selected unit.</p>
+        </div>
+        <div class="field">
+          <label data-en="Low threshold" data-de="Tief-Schwellwert">Low threshold</label>
+          <input type="number" id="nsLow" value="70" min="1" max="400" step="any">
+          <p class="hint" data-en="In the selected unit (e.g. 70 or 3.9)." data-de="In der gewählten Einheit (z.B. 70 oder 3,9).">In the selected unit.</p>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label data-en="Vibrate when low" data-de="Vibration bei Tief">Vibrate when low</label>
+          <select id="vibeOnLow">
+            <option value="0" data-en="Off" data-de="Aus">Off</option>
+            <option value="1" data-en="On (3 pulses)" data-de="An (3 Impulse)">On (3 pulses)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-en="Vibrate when high" data-de="Vibration bei Hoch">Vibrate when high</label>
+          <select id="vibeOnHigh">
+            <option value="0" data-en="Off" data-de="Aus">Off</option>
+            <option value="1" data-en="On (2 pulses)" data-de="An (2 Impulse)">On (2 pulses)</option>
+          </select>
+        </div>
+      </div>
+      <p class="hint" data-en="Alerts repeat at most every 10 minutes." data-de="Alarme wiederholen sich höchstens alle 10 Minuten.">Alerts repeat at most every 10 minutes.</p>
+      <div class="field">
+        <label data-en="Sync fetch to CGM timestamp" data-de="Abruf an CGM-Zeitstempel syncen">Sync to CGM timestamp</label>
+        <select id="syncBgWithInterval">
+          <option value="1" data-en="Yes – fetch at last reading + interval + 30 s (recommended)" data-de="Ja – Abruf bei letztem Wert + Intervall + 30 s (empfohlen)">Yes (recommended)</option>
+          <option value="0" data-en="No – fetch every manual interval" data-de="Nein – Abruf alle x Minuten">No (manual interval)</option>
+        </select>
+        <p class="hint" data-en="Synced mode schedules each fetch just after the CGM sensor is expected to report." data-de="Sync-Modus plant den Abruf kurz nach dem erwarteten CGM-Intervall.">Synced mode fetches right after the next reading is expected.</p>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label data-en="CGM interval (min)" data-de="CGM-Intervall (Min.)">CGM interval (min)</label>
+          <input type="number" id="bgFetchIntervalMin" value="5" min="1" max="20">
+          <p class="hint" data-en="Sensor interval: 5 = Dexcom, 15 = Libre. A reading counts as old (OLDBG) after twice this interval." data-de="Sensor-Intervall: 5 = Dexcom, 15 = Libre. Ein Wert gilt nach dem doppelten Intervall als alt (OLDBG).">5 = Dexcom, 15 = Libre</p>
+        </div>
+        <div class="field">
+          <label data-en="Fallback interval (min)" data-de="Ersatz-Intervall (Min.)">Fallback (min)</label>
+          <input type="number" id="bgManualIntervalMin" value="5" min="1" max="60">
+          <p class="hint" data-en="Used when sync is off or as max timeout." data-de="Genutzt wenn Sync aus ist oder als maximales Timeout.">Used when sync is off or as max timeout.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Complication ───────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <span data-en="COMPLICATION" data-de="KOMPLIKATION">COMPLICATION</span>
+      <span class="arrow">▶</span>
+    </div>
+    <div class="section-body">
+      <div class="field">
+        <label data-en="Primary complication (5-digit box)" data-de="Primäre Komplikation (5-stellig)">Primary complication</label>
+        <select id="complication">
+          <option value="0" data-en="CGM / Blood Glucose" data-de="CGM / Blutzucker">CGM / Blood Glucose</option>
+          <option value="1" data-en="Step Count"          data-de="Schritte">Step Count</option>
+          <option value="2" data-en="Heart Rate (BPM)"    data-de="Herzrate (BPM)">Heart Rate (BPM)</option>
+          <option value="3" data-en="Weather Temperature" data-de="Temperatur">Weather Temperature</option>
+          <option value="4" data-en="Battery %"           data-de="Akku %">Battery %</option>
+          <option value="5" data-en="Alternate Date"      data-de="Alternatives Datum">Alternate Date</option>
+        </select>
+        <p class="hint" data-en="Shake the watch to cycle complications for 5 s." data-de="Uhr schütteln, um Komplikationen 5 Sek. lang durchzublättern.">Shake watch to cycle through all complications for 5 seconds.</p>
+      </div>
+      <div class="field">
+        <label data-en="Shake – 2nd row data" data-de="Schütteln – 2. Zeile">Shake – 2nd row</label>
+        <select id="shake2nd">
+          <option value="0" data-en="CGM Delta (default)" data-de="CGM Delta (Standard)">CGM Delta (default)</option>
+          <option value="1" data-en="Step Count"          data-de="Schritte">Step Count</option>
+          <option value="2" data-en="Heart Rate"          data-de="Herzrate">Heart Rate</option>
+          <option value="3" data-en="Battery %"           data-de="Akku %">Battery %</option>
+          <option value="4" data-en="Weather Temp"        data-de="Temperatur">Weather Temp</option>
+          <option value="5" data-en="None (keep date)"    data-de="Keine (Datum bleibt)">None (keep date)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label data-en="Ghost segments" data-de="Geister-Segmente">Ghost segments</label>
+        <select id="ghostEnabled" onchange="schedulePreview()">
+          <option value="1" data-en="On – show unlit LCD segments (default)" data-de="An – unbeleuchtete LCD-Segmente (Standard)">On (default)</option>
+          <option value="0" data-en="Off – show value only"                   data-de="Aus – nur Wert anzeigen">Off</option>
+        </select>
+        <p class="hint" data-en="Faint background segments for a retro LCD look (whole face)." data-de="Blasse Hintergrundsegmente für einen Retro-LCD-Look (gesamtes Zifferblatt).">Retro LCD look behind the value.</p>
+      </div>
+      <div class="field">
+        <label data-en="Ghost 8s in complication box" data-de="Geister-8en im Komplikationsfeld">Ghost 8s in complication box</label>
+        <select id="ghostCompEnabled" onchange="schedulePreview()">
+          <option value="1" data-en="On (default)" data-de="An (Standard)">On (default)</option>
+          <option value="0" data-en="Off – hide ghost 8s in the box" data-de="Aus – keine Geister-8en im Feld">Off</option>
+        </select>
+        <p class="hint" data-en="Disables only the ghost 8s inside the complication box; other ghost segments stay." data-de="Blendet nur die Geister-8en im Komplikationsfeld aus; andere Geister-Segmente bleiben.">Only affects the complication box.</p>
+      </div>
+      <div class="field" style="display:none"><!-- unused since v2.2 layout -->
+        <label data-en="CGM status box" data-de="CGM-Status-Rahmen">CGM status box</label>
+        <select id="cgmBoxEnabled">
+          <option value="1" data-en="On – border around CGM status (default)" data-de="An – Rahmen um CGM-Status (Standard)">On (default)</option>
+          <option value="0" data-en="Off – no border"                          data-de="Aus – kein Rahmen">Off</option>
+        </select>
+        <p class="hint" data-en="Draws a rounded border box around the CGM Active / Offline status text." data-de="Zeichnet einen abgerundeten Rahmen um den CGM-Status-Text.">Rounded border around CGM status text.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Labels ─────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <span data-en="LABELS" data-de="BESCHRIFTUNGEN">LABELS</span>
+      <span class="arrow">▶</span>
+    </div>
+    <div class="section-body">
+      <div class="row2">
+        <div class="field">
+          <label data-en="Top left (e.g. CGM)" data-de="Oben links (z.B. CGM)">Top left</label>
+          <input type="text" id="labelTopLeft" value="CGM" maxlength="10">
+        </div>
+        <div class="field">
+          <label data-en="Top right (e.g. TIME 2)" data-de="Oben rechts (z.B. TIME 2)">Top right</label>
+          <input type="text" id="labelTopRight" value="TIME 2" maxlength="10">
+        </div>
+      </div>
+      <div class="field">
+        <label data-en="Bottom banner (yellow)" data-de="Unterer Banner (gelb)">Bottom banner</label>
+        <input type="text" id="labelBottom" value="E-PAPER DISPLAY" maxlength="20">
+        <p class="hint" data-en="Yellow text at the very bottom, like E-PAPER DISPLAY on the original." data-de="Gelber Text ganz unten, wie E-PAPER DISPLAY beim Original.">Yellow text at the very bottom.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Date & Time ────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <span data-en="DATE &amp; TIME" data-de="DATUM &amp; UHRZEIT">DATE &amp; TIME</span>
+      <span class="arrow">▶</span>
+    </div>
+    <div class="section-body">
+      <div class="row2">
+        <div class="field">
+          <label data-en="Date format" data-de="Datumsformat">Date format</label>
+          <select id="dateFormat">
+            <option value="0">DD-MM</option>
+            <option value="1">MM-DD</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-en="First weekday" data-de="Erster Wochentag">First weekday</label>
+          <select id="firstWeekday">
+            <option value="0" data-en="Sunday" data-de="Sonntag">Sunday</option>
+            <option value="1" data-en="Monday" data-de="Montag">Monday</option>
+          </select>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label data-en="Weekday language" data-de="Wochentag-Sprache">Weekday language</label>
+          <select id="wdayLang">
+            <option value="0" data-en="English (S M T W T F S)" data-de="Englisch (S M T W T F S)">English</option>
+            <option value="1" data-en="German (S M D M D F S)"  data-de="Deutsch (S M D M D F S)">German</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-en="Seconds display" data-de="Sekundenanzeige">Seconds</label>
+          <select id="showSeconds">
+            <option value="0" data-en="Hide (default)" data-de="Ausblenden (Standard)">Hide</option>
+            <option value="1" data-en="Show" data-de="Anzeigen">Show</option>
+          </select>
+          <p class="hint" data-en="Small seconds digits next to the time. Uses more battery (redraw every second)." data-de="Kleine Sekundenziffern neben der Uhrzeit. Braucht mehr Akku (Neuzeichnen pro Sekunde).">Small seconds next to the time.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Colors ─────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <span data-en="COLORS" data-de="FARBEN">COLORS</span>
+      <span class="arrow">▶</span>
+    </div>
+    <div class="section-body">
+      <p class="hint" style="margin-bottom:12px" data-en="Colors apply on Pebble Time / Time 2 (color display). Black &amp; white on aplite/diorite." data-de="Farben nur auf Pebble Time / Time 2. Aplite/Diorite zeigen immer Schwarz/Weiß.">Colors apply on Pebble Time / Time 2 (color display) only.</p>
+
+      <!-- LCD area -->
+      <p class="color-group-label" data-en="── LCD SCREEN ──" data-de="── LCD-BILDSCHIRM ──">── LCD SCREEN ──</p>
+      <div class="color-grid">
+
+        <div class="field">
+          <label data-en="LCD background" data-de="LCD-Hintergrund">LCD background</label>
+          <div class="color-row">
+            <input type="color" id="colorBgPicker" value="#FFFFFF" oninput="syncColor('colorBg','colorBgPicker')">
+            <input type="text"  id="colorBg"        value="#FFFFFF" maxlength="7" oninput="syncColor('colorBgPicker','colorBg',true)">
+          </div>
+          <p class="hint" data-en="Fill of the LCD screen area." data-de="Füllfarbe des LCD-Bildschirmbereichs.">LCD screen fill.</p>
+        </div>
+
+        <div class="field">
+          <label data-en="LCD text &amp; borders" data-de="LCD Text &amp; Rahmen">LCD text &amp; borders</label>
+          <div class="color-row">
+            <input type="color" id="colorFgPicker" value="#000055" oninput="syncColor('colorFg','colorFgPicker')">
+            <input type="text"  id="colorFg"        value="#000055" maxlength="7" oninput="syncColor('colorFgPicker','colorFg',true)">
+          </div>
+          <p class="hint" data-en="Time digits, date, borders, battery bar, weekday labels." data-de="Ziffern, Datum, Rahmen, Akkubalken, Wochentags-Labels.">Digits, borders, battery bar, weekday labels.</p>
+        </div>
+
+        <div class="field">
+          <label data-en="LCD unlit segments" data-de="LCD Geister-Segmente">LCD unlit segments</label>
+          <div class="color-row">
+            <input type="color" id="colorGhostPicker" value="#AAAAFF" oninput="syncColor('colorGhost','colorGhostPicker')">
+            <input type="text"  id="colorGhost"        value="#AAAAFF" maxlength="7" oninput="syncColor('colorGhostPicker','colorGhost',true)">
+          </div>
+          <p class="hint" data-en="Colour of unlit digit segments (ghost 8s). Lighter = more subtle." data-de="Farbe der nicht leuchtenden Segmente (Ghost-8en). Heller = dezenter.">Ghost digit segments (lighter = more subtle).</p>
+        </div>
+
+        <div class="field">
+          <label data-en="Date row background" data-de="Datumszeile Hintergrund">Date row background</label>
+          <div class="color-row">
+            <input type="color" id="colorTime2BgPicker" value="#FFFFFF" oninput="syncColor('colorTime2Bg','colorTime2BgPicker')">
+            <input type="text"  id="colorTime2Bg"        value="#FFFFFF" maxlength="7" oninput="syncColor('colorTime2BgPicker','colorTime2Bg',true)">
+          </div>
+          <p class="hint" data-en="Tinted strip behind the date + complication row. Same as LCD BG = no effect." data-de="Getönter Streifen hinter Datum- und Komplikationszeile. Gleich wie LCD-BG = kein Effekt.">Tint behind date + complication. Same as LCD BG = no effect.</p>
+        </div>
+
+      </div>
+
+      <!-- Casio frame -->
+      <p class="color-group-label" data-en="── WATCH FRAME ──" data-de="── GEHÄUSE ──">── WATCH FRAME ──</p>
+      <div class="color-grid">
+
+        <div class="field">
+          <label data-en="Casio accent bands" data-de="Casio-Akzentbänder">Casio accent bands</label>
+          <div class="color-row">
+            <input type="color" id="colorAccentPicker" value="#FF0000" oninput="syncColor('colorAccent','colorAccentPicker')">
+            <input type="text"  id="colorAccent"        value="#FF0000" maxlength="7" oninput="syncColor('colorAccentPicker','colorAccent',true)">
+          </div>
+          <p class="hint" data-en="The two red horizontal Casio stripes (top &amp; bottom)." data-de="Die zwei roten horizontalen Casio-Streifen (oben &amp; unten).">The two red Casio stripes (top &amp; bottom).</p>
+        </div>
+
+        <div class="field">
+          <label data-en="Top strip label text" data-de="Obere Leiste, Beschriftung">Top strip labels</label>
+          <div class="color-row">
+            <input type="color" id="colorLabelTopPicker" value="#FFFFFF" oninput="syncColor('colorLabelTop','colorLabelTopPicker')">
+            <input type="text"  id="colorLabelTop"        value="#FFFFFF" maxlength="7" oninput="syncColor('colorLabelTopPicker','colorLabelTop',true)">
+          </div>
+          <p class="hint" data-en="Colour of the CGM / TIME 2 labels in the top strip." data-de="Farbe der CGM / TIME 2 Labels im oberen Streifen.">CGM / TIME 2 label text.</p>
+        </div>
+
+      </div>
+
+      <!-- Glucose values -->
+      <p class="color-group-label" data-en="── GLUCOSE VALUES ──" data-de="── GLUKOSEWERTE ──">── GLUCOSE VALUES ──</p>
+      <div class="color-grid">
+
+        <div class="field">
+          <label data-en="Glucose – in range" data-de="Glukose – im Zielbereich">Glucose – in range</label>
+          <div class="color-row">
+            <input type="color" id="colorCgmOkPicker" value="#38571A" oninput="syncColor('colorCgmOk','colorCgmOkPicker')">
+            <input type="text"  id="colorCgmOk"        value="#38571A" maxlength="7" oninput="syncColor('colorCgmOkPicker','colorCgmOk',true)">
+          </div>
+          <p class="hint" data-en="Glucose value in the complication box when within range." data-de="Glukosewert in der Komplikationsbox wenn im Zielbereich.">Complication box value when in range.</p>
+        </div>
+
+        <div class="field">
+          <label data-en="Glucose – above range" data-de="Glukose – zu hoch">Glucose – above range</label>
+          <div class="color-row">
+            <input type="color" id="colorCgmHighPicker" value="#A96800" oninput="syncColor('colorCgmHigh','colorCgmHighPicker')">
+            <input type="text"  id="colorCgmHigh"        value="#A96800" maxlength="7" oninput="syncColor('colorCgmHighPicker','colorCgmHigh',true)">
+          </div>
+        </div>
+
+        <div class="field">
+          <label data-en="Glucose – below range" data-de="Glukose – zu niedrig">Glucose – below range</label>
+          <div class="color-row">
+            <input type="color" id="colorCgmLowPicker" value="#FF0000" oninput="syncColor('colorCgmLow','colorCgmLowPicker')">
+            <input type="text"  id="colorCgmLow"        value="#FF0000" maxlength="7" oninput="syncColor('colorCgmLowPicker','colorCgmLow',true)">
+          </div>
+        </div>
+
+      </div>
+
+      <!-- CGM status section -->
+      <p class="color-group-label" data-en="── CGM STATUS BAR ──" data-de="── CGM-STATUSLEISTE ──">── CGM STATUS BAR ──</p>
+      <div class="color-grid">
+
+        <div class="field">
+          <label data-en="CGM status label text" data-de="CGM-Status-Text">CGM status label</label>
+          <div class="color-row">
+            <input type="color" id="colorCgmBannerPicker" value="#55AAFF" oninput="syncColor('colorCgmBanner','colorCgmBannerPicker')">
+            <input type="text"  id="colorCgmBanner"        value="#55AAFF" maxlength="7" oninput="syncColor('colorCgmBannerPicker','colorCgmBanner',true)">
+          </div>
+          <p class="hint" data-en="Colour of the &quot;CGM Active&quot; text &amp; box border (bottom-left). Independent of glucose value colour." data-de="Farbe des &quot;CGM Aktiv&quot;-Texts &amp; Rahmens (unten links). Unabhängig vom Glukosewert.">&quot;CGM Active&quot; text &amp; box border. Independent of glucose colour.</p>
+        </div>
+
+        <div class="field" style="display:none"><!-- unused since v2.2 layout -->
+          <label data-en="CGM box fill" data-de="CGM-Box Füllfarbe">CGM box fill</label>
+          <div class="color-row">
+            <input type="color" id="colorCgmBoxBgPicker" value="#EEEEEE" oninput="syncColor('colorCgmBoxBg','colorCgmBoxBgPicker')">
+            <input type="text"  id="colorCgmBoxBg"        value="#EEEEEE" maxlength="7" oninput="syncColor('colorCgmBoxBgPicker','colorCgmBoxBg',true)">
+          </div>
+          <p class="hint" data-en="Background fill of the CGM status box. Same as LCD BG = transparent." data-de="Füllfarbe der CGM-Status-Box. Gleich wie LCD-BG = transparent.">CGM box background. Same as LCD BG = transparent.</p>
+        </div>
+
+        <div class="field">
+          <label data-en="CGM trend arrow &amp; delta" data-de="CGM Pfeil &amp; Delta">CGM trend &amp; delta</label>
+          <div class="color-row">
+            <input type="color" id="colorCgmInfoPicker" value="#FFFFFF" oninput="syncColor('colorCgmInfo','colorCgmInfoPicker')">
+            <input type="text"  id="colorCgmInfo"        value="#FFFFFF" maxlength="7" oninput="syncColor('colorCgmInfoPicker','colorCgmInfo',true)">
+          </div>
+          <p class="hint" data-en="Colour of the trend arrow and &quot;+2 3m&quot; delta/age text next to the CGM status box." data-de="Farbe des Trendpfeils und des &quot;+2 3m&quot;-Texts neben der CGM-Status-Box.">Trend arrow and delta/age text next to CGM box.</p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Backlight ──────────────────────────────────────────── -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <span data-en="BACKLIGHT" data-de="BELEUCHTUNG">BACKLIGHT</span>
+      <span class="arrow">▶</span>
+    </div>
+    <div class="section-body">
+      <p class="hint" style="margin-bottom:12px" data-en="Pebble Time 2 supports a colour backlight. The light activates on wrist-raise or button press — you choose the tint. On older Pebble models this has no effect." data-de="Die Pebble Time 2 unterstützt farbige Hintergrundbeleuchtung. Das Licht aktiviert sich bei Bewegung oder Tastendruck — du wählst den Farbton. Auf älteren Pebble-Modellen ohne Effekt.">Pebble Time 2 supports a colour backlight. Activates on wrist-raise or button press.</p>
+      <div class="field">
+        <label data-en="Backlight colour mode" data-de="Beleuchtungsmodus">Backlight mode</label>
+        <select id="backlightEnabled" onchange="schedulePreview()">
+          <option value="1" data-en="Custom colour (set below)" data-de="Benutzerdefinierte Farbe (unten wählen)">Custom colour</option>
+          <option value="0" data-en="System default (white)"    data-de="Systemstandard (weiß)">System default (white)</option>
+        </select>
+        <p class="hint" data-en="Custom: use the colour you pick below. System default: standard white light." data-de="Benutzerdefiniert: wähle die Farbe unten. Systemstandard: normales weißes Licht.">Custom uses the colour below; System default uses standard white.</p>
+      </div>
+      <div class="field" id="backlightColorField">
+        <label data-en="Backlight colour" data-de="Beleuchtungsfarbe">Backlight colour</label>
+        <div class="color-row">
+          <input type="color" id="colorBacklightPicker" value="#FFFFFF" oninput="syncColor('colorBacklight','colorBacklightPicker')">
+          <input type="text"  id="colorBacklight"        value="#FFFFFF" maxlength="7" oninput="syncColor('colorBacklightPicker','colorBacklight',true)">
+        </div>
+        <p class="hint" data-en="Full RGB888 — the LED hardware supports any colour. Try warm white #FFEECC, red #FF2200, green #00FF44, cyan #00FFFF, purple #8800FF." data-de="Volle RGB888 — die LED-Hardware unterstützt jede Farbe. Z.B. Warmweiß #FFEECC, Rot #FF2200, Grün #00FF44, Cyan #00FFFF, Lila #8800FF.">Full RGB · e.g. warm white #FFEECC · red #FF2200 · green #00FF44 · cyan #00FFFF</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Buttons ─────────────────────────────────────────────── -->
+  <div class="btn-row">
+    <button class="btn btn-cancel" onclick="cancel()" data-en="CANCEL" data-de="ABBRECHEN">CANCEL</button>
+    <button class="btn btn-save"   onclick="save()"   data-en="SAVE &amp; CLOSE" data-de="SPEICHERN">SAVE &amp; CLOSE</button>
+  </div>
+
+  <!-- Donate ──────────────────────────────────────────────── -->
+  <div class="donate">
+    <span data-en="If CasioCGM is useful, a small donation is appreciated ♥" data-de="Wenn CasioCGM nützlich ist, freue ich mich über eine kleine Spende ♥">If CasioCGM is useful, a small donation is appreciated ♥</span><br>
+    <a href="https://paypal.me/simongutjahr" target="_blank" rel="noopener">Donate via PayPal</a>
+  </div>
+
+  <div class="footer">CASIOCGM &bull; PEBBLE WATCHFACE &bull; MIT LICENSE</div>
+
+</div><!-- /container -->
+
+<script>
+// ── i18n ──────────────────────────────────────────────────────────────────
+var lang = 'en';
+function toggleLang() {
+  lang = (lang === 'en') ? 'de' : 'en';
+  document.getElementById('lang-btn').textContent = (lang === 'en') ? 'DE' : 'EN';
+  document.querySelectorAll('[data-en]').forEach(function(el) {
+    el.textContent = el.getAttribute('data-' + lang);
+  });
+  document.querySelectorAll('option[data-en]').forEach(function(el) {
+    el.textContent = el.getAttribute('data-' + lang);
+  });
+}
+
+// ── Section toggle ─────────────────────────────────────────────────────────
+function toggleSection(header) {
+  header.classList.toggle('open');
+  header.nextElementSibling.classList.toggle('open');
+}
+
+// ── Preview toggle ─────────────────────────────────────────────────────────
+function togglePreview() {
+  var toggle = document.getElementById('preview-toggle');
+  var body   = document.getElementById('preview-body');
+  toggle.classList.toggle('collapsed');
+  body.classList.toggle('hidden');
+}
+
+// ── Color sync ─────────────────────────────────────────────────────────────
+function syncColor(targetId, sourceId, fromText) {
+  var src = document.getElementById(sourceId);
+  var tgt = document.getElementById(targetId);
+  if (fromText) {
+    var v = src.value;
+    if (/^#[0-9A-Fa-f]{6}$/.test(v)) tgt.value = v;
+  } else {
+    tgt.value = src.value.toUpperCase();
+  }
+  schedulePreview();
+}
+
+// ── Live Preview ───────────────────────────────────────────────────────────
+var previewTimer = null;
+function schedulePreview() {
+  if (previewTimer) clearTimeout(previewTimer);
+  previewTimer = setTimeout(drawPreview, 80);
+}
+
+// ── Canvas helpers ─────────────────────────────────────────────────────────
+function SX(x) { return Math.round(x * 200 / 144); }
+function SY(y) { return Math.round(y * 228 / 168); }
+function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+
+function roundRect(ctx, x, y, w, h, r) {
+  if (r < 0) r = 0;
+  if (r > w / 2) r = w / 2;
+  if (r > h / 2) r = h / 2;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// Draw trend arrow (same logic as C)
+function drawTrendArrow(ctx, trend, x, y, w, h, color) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = 'round';
+  var cx = Math.round(x + w / 2);
+  var cy = Math.round(y + h / 2);
+  var ah = Math.round(Math.min(w, h) * 0.38);
+
+  ctx.beginPath();
+  if (trend === '-') { // Flat →
+    ctx.moveTo(cx - ah, cy); ctx.lineTo(cx + ah, cy);
+    ctx.moveTo(cx + ah, cy); ctx.lineTo(cx + ah - ah/2, cy - ah/2);
+    ctx.moveTo(cx + ah, cy); ctx.lineTo(cx + ah - ah/2, cy + ah/2);
+  } else if (trend === 'u') { // SingleUp ↑
+    ctx.moveTo(cx, cy + ah); ctx.lineTo(cx, cy - ah + 1);
+    ctx.moveTo(cx, cy - ah); ctx.lineTo(cx - ah, cy);
+    ctx.moveTo(cx, cy - ah); ctx.lineTo(cx + ah, cy);
+  } else if (trend === 'd') { // SingleDown ↓
+    ctx.moveTo(cx, cy - ah); ctx.lineTo(cx, cy + ah - 1);
+    ctx.moveTo(cx, cy + ah); ctx.lineTo(cx - ah, cy);
+    ctx.moveTo(cx, cy + ah); ctx.lineTo(cx + ah, cy);
+  } else if (trend === 'r') { // FortyFiveUp ↗
+    ctx.moveTo(cx - ah, cy + ah); ctx.lineTo(cx + ah, cy - ah);
+    ctx.moveTo(cx + ah, cy - ah); ctx.lineTo(cx + ah, cy);
+    ctx.moveTo(cx + ah, cy - ah); ctx.lineTo(cx, cy - ah);
+  } else if (trend === 'f') { // FortyFiveDown ↘
+    ctx.moveTo(cx - ah, cy - ah); ctx.lineTo(cx + ah, cy + ah);
+    ctx.moveTo(cx + ah, cy + ah); ctx.lineTo(cx + ah, cy);
+    ctx.moveTo(cx + ah, cy + ah); ctx.lineTo(cx, cy + ah);
+  } else if (trend === 'U') { // DoubleUp ↑↑
+    ctx.moveTo(cx, cy - ah - 1); ctx.lineTo(cx - ah, cy - 1);
+    ctx.moveTo(cx, cy - ah - 1); ctx.lineTo(cx + ah, cy - 1);
+    ctx.moveTo(cx, cy + 1);      ctx.lineTo(cx - ah, cy + ah + 1);
+    ctx.moveTo(cx, cy + 1);      ctx.lineTo(cx + ah, cy + ah + 1);
+  } else if (trend === 'D') { // DoubleDown ↓↓
+    ctx.moveTo(cx, cy - 1);      ctx.lineTo(cx - ah, cy - ah - 1);
+    ctx.moveTo(cx, cy - 1);      ctx.lineTo(cx + ah, cy - ah - 1);
+    ctx.moveTo(cx, cy + ah + 1); ctx.lineTo(cx - ah, cy + 1);
+    ctx.moveTo(cx, cy + ah + 1); ctx.lineTo(cx + ah, cy + 1);
+  } else { // unknown / ? / !
+    ctx.moveTo(cx - ah, cy); ctx.lineTo(cx + ah, cy);
+    ctx.moveTo(cx, cy - ah); ctx.lineTo(cx, cy + ah);
+  }
+  ctx.stroke();
+}
+
+// ── Main preview render ────────────────────────────────────────────────────
+function drawPreview() {
+  var canvas = document.getElementById('previewCanvas');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var W = 200, H = 228;
+
+  // ── Read config ───────────────────────────────────────────
+  function cv(id, def) {
+    var el = document.getElementById(id);
+    return el ? el.value : def;
+  }
+  var colBg        = cv('colorBg',        '#FFFFFF');
+  var colFg        = cv('colorFg',        '#000055');
+  var colAccent    = cv('colorAccent',    '#FF0000');
+  var colGhost     = cv('colorGhost',     '#AAAAFF');
+  var colLabelTop  = cv('colorLabelTop',  '#FFFFFF');
+  var colCgmOk     = cv('colorCgmOk',     '#38571A');
+  var colCgmHigh   = cv('colorCgmHigh',   '#A96800');
+  var colCgmLow    = cv('colorCgmLow',    '#FF0000');
+  var colCgmBanner = cv('colorCgmBanner', '#55AAFF');
+  var colCgmBoxBg  = cv('colorCgmBoxBg',  '#EEEEEE');
+  var colCgmInfo       = cv('colorCgmInfo',       '#FFFFFF');
+  var colTime2Bg       = cv('colorTime2Bg',       '#FFFFFF');
+  var backlightEnabled = parseInt(cv('backlightEnabled', '1'));
+  var colBacklight     = cv('colorBacklight',     '#FFFFFF');
+  var labelTL      = cv('labelTopLeft',   'CGM');
+  var labelTR      = cv('labelTopRight',  'TIME 2');
+  var dateFormat   = parseInt(cv('dateFormat',   '0'));
+  var firstWeekday = parseInt(cv('firstWeekday', '0'));
+  var wdayLang     = parseInt(cv('wdayLang',     '0'));
+  var ghostEnabled = parseInt(cv('ghostEnabled', '1'));
+  var ghostComp    = ghostEnabled && parseInt(cv('ghostCompEnabled', '1'));
+  var cgmBoxEnabled= parseInt(cv('cgmBoxEnabled','1'));
+  var complication = parseInt(cv('complication', '0'));
+
+  // ── Sample data ───────────────────────────────────────────
+  var now      = new Date();
+  var hh = now.getHours(), mm = now.getMinutes();
+  var timeStr  = pad2(hh) + ':' + pad2(mm);
+  var dd = now.getDate(), mo = now.getMonth() + 1;
+  var dateStr  = dateFormat === 0 ? pad2(dd) + '-' + pad2(mo) : pad2(mo) + '-' + pad2(dd);
+  var cgmVal   = '108';    // in-range CGM value
+  var cgmDelta = '+2';
+  var cgmTrend = '-';      // flat
+  var cgmAge   = 3;
+  var battPct  = 75;
+  var todayWday = now.getDay(); // 0=Sun
+
+  // Weekday arrays (same as C)
+  var D_SUN_EN = ['S','M','T','W','T','F','S'];
+  var D_MON_EN = ['M','T','W','T','F','S','S'];
+  var D_SUN_DE = ['S','M','D','M','D','F','S'];
+  var D_MON_DE = ['M','D','M','D','F','S','S'];
+  var daysArr;
+  if (wdayLang === 1)      daysArr = firstWeekday === 1 ? D_MON_DE : D_SUN_DE;
+  else                     daysArr = firstWeekday === 1 ? D_MON_EN : D_SUN_EN;
+  var todayIdx = todayWday;
+  if (firstWeekday === 1)  todayIdx = (todayIdx + 6) % 7;
+
+  // Complication string
+  var compStr, cgmSlot;
+  switch (complication) {
+    case 1:  compStr = '6218';   cgmSlot = false; break;
+    case 2:  compStr = '72';     cgmSlot = false; break;
+    case 3:  compStr = '21 C';   cgmSlot = false; break;
+    case 4:  compStr = '75%';    cgmSlot = false; break;
+    case 5:  compStr = dateStr;  cgmSlot = false; break;
+    default: compStr = cgmVal;   cgmSlot = true;  break;
+  }
+
+  // ── Draw: mirrors canvas_update_proc() in main.c (emery 200×228) ──────
+  var showSec  = parseInt(cv('showSeconds', '0')) === 1;
+  var labelBot = cv('labelBottom', 'E-PAPER DISPLAY');
+  var DS = '"DSEG14", "Courier New", monospace';
+  var cgmCol = cgmSlot ? colCgmOk : colFg;
+
+  function txt(s, x, y, font, color, align) {
+    ctx.font = font; ctx.fillStyle = color;
+    ctx.textAlign = align || 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(s, x, y);
+  }
+  function lcd(ghost, real, x, y, px, align) {
+    if (ghostEnabled) { ctx.font = px + 'px ' + DS; txt(ghost, x, y, px + 'px ' + DS, colGhost, align); }
+    txt(real, x, y, 'bold ' + px + 'px ' + DS, colFg, align);
+  }
+  function arrow(x, y, right) {
+    ctx.fillStyle = '#FFFFFF'; ctx.beginPath();
+    if (right) { ctx.moveTo(x, y); ctx.lineTo(x - 4, y - 2); ctx.lineTo(x - 4, y + 2); }
+    else       { ctx.moveTo(x, y); ctx.lineTo(x + 4, y - 2); ctx.lineTo(x + 4, y + 2); }
+    ctx.fill();
+  }
+
+  // 1. case + red ring
+  ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = colAccent; roundRect(ctx, 0, 16, W, 187, 14); ctx.fill();
+  ctx.fillStyle = '#000000'; roundRect(ctx, 3, 20, W - 6, 178, 12); ctx.fill();
+
+  // 2. top labels ("2" of "TIME 2" in blue)
+  txt(labelTL, 6, 1, 'bold 13px sans-serif', colLabelTop);
+  var sp = labelTR.lastIndexOf(' ');
+  if (sp > 0 && labelTR.length - sp - 1 <= 2) {
+    txt(labelTR.slice(sp + 1), W - 6, 1, 'bold 13px sans-serif', '#55AAFF', 'right');
+    ctx.font = 'bold 13px sans-serif';
+    var sw = ctx.measureText(labelTR.slice(sp + 1)).width;
+    txt(labelTR.slice(0, sp), W - 9 - sw, 1, 'bold 13px sans-serif', colLabelTop, 'right');
+  } else {
+    txt(labelTR, W - 6, 1, 'bold 13px sans-serif', colLabelTop, 'right');
+  }
+
+  // 3. button labels
+  arrow(8, 31, false); txt('LIGHT', 14, 26, '9px sans-serif', '#FFFFFF');
+  txt('pebble', W / 2, 19, 'bold 17px sans-serif', '#FFFF00', 'center');
+  txt('UP', W - 15, 20, '9px sans-serif', '#FFFFFF', 'right'); arrow(W - 8, 25, true);
+  txt('ENTER', W - 15, 31, '9px sans-serif', '#FFFFFF', 'right'); arrow(W - 8, 36, true);
+
+  // 4. LCD frame + panel + row tint
+  ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 3;
+  roundRect(ctx, 6, 43, W - 12, 121, 8); ctx.stroke();
+  ctx.fillStyle = colBg; roundRect(ctx, 10, 46, W - 20, 105, 5); ctx.fill();
+  ctx.fillStyle = colTime2Bg; roundRect(ctx, 12, 47, W - 24, 29, 4); ctx.fill();
+
+  // 5. date, 6. comp box
+  lcd('88-88', dateStr, 14, 54, 16, 'left');
+  ctx.strokeStyle = colGhost; ctx.lineWidth = 2;
+  roundRect(ctx, 90, 48, 96, 29, 5); ctx.stroke();
+  var compGhost = cgmSlot ? '8888' : '88888';
+  var compRight = cgmSlot ? 170 : 184;
+  if (ghostComp) txt(compGhost, compRight, 54, '22px ' + DS, colGhost, 'right');
+  txt(compStr, compRight, 54, 'bold 22px ' + DS, cgmCol, 'right');
+  if (cgmSlot) drawTrendArrow(ctx, cgmTrend, 169, 52, 14, 20, cgmCol);
+
+  // 7. time (+ seconds), "P"
+  if (showSec) {
+    lcd('88:88', timeStr, 14, 88, 38, 'left');
+    lcd('88', pad2(now.getSeconds()), 186, 104, 22, 'right');
+  } else {
+    lcd('88:88', timeStr, W / 2, 82, 48, 'center');
+  }
+  if (ghostEnabled) txt('P', 14, 74, '9px sans-serif', colGhost);
+
+  // 8. info strip
+  var midX = 102;
+  ctx.strokeStyle = colFg; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(12, 135.5); ctx.lineTo(W - 13, 135.5);
+  ctx.moveTo(midX + 0.5, 135); ctx.lineTo(midX + 0.5, 151); ctx.stroke();
+  txt('BAT', 14, 139, '9px sans-serif', colFg);
+  var lit = Math.round(battPct / 10);
+  for (var s = 0; s < 10; s++) {
+    if (s >= lit && !ghostEnabled) continue;
+    ctx.fillStyle = s < lit ? colFg : colGhost;
+    ctx.fillRect(35 + s * 6, 139, 4, 9);
+  }
+
+  // 9. weekday squares + letters
+  var wx = midX + 4, step = Math.floor((186 - wx) / 7);
+  for (var i = 0; i < 7; i++) {
+    var dx = wx + i * step + (step - 7) / 2;
+    ctx.fillStyle = i === todayIdx ? colFg : colGhost;
+    ctx.fillRect(dx, 140, 7, 7);
+    txt(daysArr[i], wx + i * step + step / 2, 152, '9px sans-serif', '#FFFFFF', 'center');
+  }
+
+  // 10. CGM status · heart · DOWN
+  txt('CGM ACTIVE', 10, 164, 'bold 13px sans-serif', colCgmBanner);
+  txt(cgmDelta + '  ' + cgmAge + ' MIN', 10, 178, 'bold 13px sans-serif', colCgmInfo);
+  ctx.fillStyle = '#FFFF00'; ctx.beginPath();
+  ctx.arc(116, 176, 6, 0, Math.PI * 2); ctx.arc(128, 176, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(110, 178); ctx.lineTo(134, 178); ctx.lineTo(122, 191); ctx.fill();
+  drawTrendArrow(ctx, cgmTrend, 115, 171, 14, 14, '#000000');
+  txt('DOWN', W - 15, 176, '9px sans-serif', '#FFFFFF', 'right'); arrow(W - 8, 181, true);
+
+  // 11. yellow banner
+  txt(labelBot, W / 2, 207, 'bold 13px sans-serif', '#FFFF00', 'center');
+}
+
+// ── Load config from Pebble URL param ─────────────────────────────────────
+// The watch passes the current config in the URL fragment (#config=…) so the
+// Nightscout token never reaches the web server; ?config= still works. The
+// emulator appends ?return_to=… (possibly after the fragment), so parameters
+// are parsed from the whole href.
+function urlParam(name) {
+  var m = new RegExp('[?&#]' + name + '=([^&#?]*)').exec(window.location.href);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function closeWith(payload) {
+  document.location = (urlParam('return_to') || 'pebblejs://close#') + payload;
+}
+
+function updateSourceFields() {
+  var omp = document.getElementById('bgSource').value === 'openminipump';
+  document.getElementById('nsFields').style.display = omp ? 'none' : '';
+  document.getElementById('ompFields').style.display = omp ? '' : 'none';
+}
+
+function loadConfig() {
+  var raw = urlParam('config');
+  if (!raw) return;
+  try {
+    var cfg;
+    try { cfg = JSON.parse(raw); } catch (e) { cfg = JSON.parse(decodeURIComponent(raw)); }
+    function setVal(id, v) {
+      var el = document.getElementById(id);
+      if (el && v !== undefined && v !== null) el.value = v;
+    }
+    setVal('bgSource',      cfg.bgSource || 'nightscout');
+    setVal('ompUrl',        cfg.ompUrl || 'http://127.0.0.1:17580');
+    updateSourceFields();
+    setVal('nsUrl',         cfg.nsUrl);
+    setVal('nsToken',       cfg.nsToken);
+    setVal('nsUnits',       cfg.nsUnits);
+    setVal('nsHigh',        cfg.nsHigh);
+    setVal('nsLow',         cfg.nsLow);
+    setVal('vibeOnLow',     cfg.vibeOnLow  ? '1' : '0');
+    setVal('vibeOnHigh',    cfg.vibeOnHigh ? '1' : '0');
+    if (cfg.syncBgWithInterval !== undefined)
+      setVal('syncBgWithInterval', cfg.syncBgWithInterval ? '1' : '0');
+    if (cfg.bgFetchIntervalMin)  setVal('bgFetchIntervalMin',  cfg.bgFetchIntervalMin);
+    if (cfg.bgManualIntervalMin) setVal('bgManualIntervalMin', cfg.bgManualIntervalMin);
+    setVal('complication',  cfg.complication);
+    setVal('labelTopLeft',  cfg.labelTopLeft);
+    setVal('labelTopRight', cfg.labelTopRight);
+    setVal('labelBottom',   cfg.labelBottom);
+    setVal('dateFormat',    cfg.dateFormat);
+    setVal('firstWeekday',  cfg.firstWeekday);
+    setVal('shake2nd',      cfg.shake2nd);
+    setVal('ghostEnabled',     cfg.ghostEnabled     !== undefined ? String(cfg.ghostEnabled)     : '1');
+    setVal('ghostCompEnabled', cfg.ghostCompEnabled !== undefined ? String(cfg.ghostCompEnabled) : '1');
+    setVal('cgmBoxEnabled',    cfg.cgmBoxEnabled    !== undefined ? String(cfg.cgmBoxEnabled)    : '1');
+    setVal('backlightEnabled', cfg.backlightEnabled !== undefined ? String(cfg.backlightEnabled) : '1');
+    setVal('wdayLang',      cfg.wdayLang);
+    setVal('showSeconds',   cfg.showSeconds);
+
+    var colorFields = ['colorBg','colorFg','colorAccent','colorCgmOk','colorCgmBanner',
+                       'colorCgmHigh','colorCgmLow','colorGhost','colorLabelTop',
+                       'colorTime2Bg','colorCgmBoxBg','colorCgmInfo','colorBacklight'];
+    colorFields.forEach(function(f) {
+      var v = cfg[f];
+      if (v === undefined || v === null) return;
+      var hex = (typeof v === 'number')
+        ? '#' + v.toString(16).padStart(6, '0').toUpperCase()
+        : (String(v).charAt(0) === '#' ? String(v).toUpperCase() : '#' + String(v).toUpperCase());
+      setVal(f, hex);
+      setVal(f + 'Picker', hex);
+    });
+  } catch (e) {
+    console.error('CasioCGM config parse error', e);
+  }
+}
+
+// ── Save ───────────────────────────────────────────────────────────────────
+function save() {
+  var cfg = {
+    bgSource:      document.getElementById('bgSource').value,
+    ompUrl:        document.getElementById('ompUrl').value.trim() || 'http://127.0.0.1:17580',
+    nsUrl:         document.getElementById('nsUrl').value.trim(),
+    nsToken:       document.getElementById('nsToken').value.trim(),
+    nsUnits:       document.getElementById('nsUnits').value,
+    nsHigh:        document.getElementById('nsHigh').value,
+    nsLow:         document.getElementById('nsLow').value,
+    vibeOnLow:     document.getElementById('vibeOnLow').value === '1',
+    vibeOnHigh:    document.getElementById('vibeOnHigh').value === '1',
+    syncBgWithInterval: document.getElementById('syncBgWithInterval').value !== '0',
+    bgFetchIntervalMin:  parseInt(document.getElementById('bgFetchIntervalMin').value)  || 5,
+    bgManualIntervalMin: parseInt(document.getElementById('bgManualIntervalMin').value) || 5,
+    complication:  document.getElementById('complication').value,
+    labelTopLeft:  document.getElementById('labelTopLeft').value,
+    labelTopRight: document.getElementById('labelTopRight').value,
+    labelBottom:   document.getElementById('labelBottom').value,
+    dateFormat:    document.getElementById('dateFormat').value,
+    firstWeekday:  document.getElementById('firstWeekday').value,
+    shake2nd:      document.getElementById('shake2nd').value,
+    ghostEnabled:  parseInt(document.getElementById('ghostEnabled').value),
+    ghostCompEnabled: parseInt(document.getElementById('ghostCompEnabled').value),
+    cgmBoxEnabled: parseInt(document.getElementById('cgmBoxEnabled').value),
+    wdayLang:      document.getElementById('wdayLang').value,
+    showSeconds:   document.getElementById('showSeconds').value,
+    colorBg:         document.getElementById('colorBg').value,
+    colorFg:         document.getElementById('colorFg').value,
+    colorAccent:     document.getElementById('colorAccent').value,
+    colorCgmOk:      document.getElementById('colorCgmOk').value,
+    colorCgmBanner:  document.getElementById('colorCgmBanner').value,
+    colorCgmHigh:    document.getElementById('colorCgmHigh').value,
+    colorCgmLow:     document.getElementById('colorCgmLow').value,
+    colorGhost:      document.getElementById('colorGhost').value,
+    colorLabelTop:   document.getElementById('colorLabelTop').value,
+    colorTime2Bg:    document.getElementById('colorTime2Bg').value,
+    colorCgmBoxBg:      document.getElementById('colorCgmBoxBg').value,
+    colorCgmInfo:       document.getElementById('colorCgmInfo').value,
+    backlightEnabled:   parseInt(document.getElementById('backlightEnabled').value),
+    colorBacklight:     document.getElementById('colorBacklight').value
+  };
+  closeWith(encodeURIComponent(JSON.stringify(cfg)));
+}
+
+function cancel() { closeWith('CANCELLED'); }
+
+// ── Wire up live preview on every input change ─────────────────────────────
+function bindPreviewUpdates() {
+  var inputs = document.querySelectorAll('input, select');
+  inputs.forEach(function(el) {
+    el.addEventListener('change',  schedulePreview);
+    el.addEventListener('input',   schedulePreview);
+    el.addEventListener('keyup',   schedulePreview);
+  });
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+loadConfig();
+bindPreviewUpdates();
+
+// Wait for fonts, then draw
+// Canvas text does not trigger web-font loading reliably: load both DSEG
+// weights explicitly, then redraw
+Promise.all([document.fonts.load('22px "DSEG14"'), document.fonts.load('bold 22px "DSEG14"')])
+  .then(function() { drawPreview(); }, function() {});
+// Fallback draw immediately too
+drawPreview();
+</script>
+</body>
+</html>

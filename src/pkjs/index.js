@@ -17,6 +17,8 @@ var FETCH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes (legacy fallback)
 
 // ── Config defaults ───────────────────────────────────────────────────────
 var configDefaults = {
+  bgSource: 'nightscout',    // 'nightscout' | 'openminipump' (local server of the iPhone app)
+  ompUrl: 'http://127.0.0.1:17580',
   syncBgWithInterval: true,  // sync fetch to CGM timestamp
   bgFetchIntervalMin: 5,     // expected CGM sensor interval (min)
   bgManualIntervalMin: 5     // fallback / max fetch interval (min)
@@ -117,8 +119,9 @@ function staleMin() {
 // ── Send config to watch ──────────────────────────────────────────────────
 function sendConfig() {
   var msg = {};
-  msg[K.NS_URL]          = config.nsUrl         || '';
-  msg[K.NS_TOKEN]        = config.nsToken        || '';
+  // The watch only checks whether a source is configured; send the effective URL.
+  msg[K.NS_URL]          = bgBaseUrl()           || '';
+  msg[K.NS_TOKEN]        = isOpenMinipump() ? '' : (config.nsToken || '');
   msg[K.NS_UNITS]        = parseInt(config.nsUnits)     || 0;
   // Thresholds are entered in the display unit but always sent as mg/dL,
   // because the watch compares against the raw sgv (CGM_SGV, mg/dL).
@@ -300,8 +303,19 @@ function formatDelta(deltaMgdl, mmol) {
   return (v > 0 ? '+' : '-') + s;
 }
 
+// Data source: Nightscout (default) or the local web server of the openMinipump
+// iPhone app (Nightscout-compatible /pebble on http://127.0.0.1:17580).
+function isOpenMinipump() {
+  return config.bgSource === 'openminipump';
+}
+
+function bgBaseUrl() {
+  if (isOpenMinipump()) return config.ompUrl || configDefaults.ompUrl;
+  return config.nsUrl;
+}
+
 function fetchNightscout() {
-  var url = config.nsUrl;
+  var url = bgBaseUrl();
   if (!url || url.length < 4) {
     planNextBGFetch(null);
     return;
@@ -311,7 +325,7 @@ function fetchNightscout() {
   // e.g. token-in-URL workaround)
   url = url.replace(/\/$/, '');
   var apiUrl = (url.indexOf('/pebble') >= 0) ? url : url + '/pebble';
-  if (config.nsToken && apiUrl.indexOf('token=') < 0) {
+  if (!isOpenMinipump() && config.nsToken && apiUrl.indexOf('token=') < 0) {
     apiUrl += (apiUrl.indexOf('?') >= 0 ? '&' : '?') +
               'token=' + encodeURIComponent(config.nsToken);
   }
@@ -483,6 +497,8 @@ function applyDefaults(cfg) {
   if (cfg.syncBgWithInterval === undefined) cfg.syncBgWithInterval = configDefaults.syncBgWithInterval;
   if (!cfg.bgFetchIntervalMin)              cfg.bgFetchIntervalMin  = configDefaults.bgFetchIntervalMin;
   if (!cfg.bgManualIntervalMin)             cfg.bgManualIntervalMin = configDefaults.bgManualIntervalMin;
+  if (!cfg.bgSource)                        cfg.bgSource = configDefaults.bgSource;
+  if (!cfg.ompUrl)                          cfg.ompUrl = configDefaults.ompUrl;
   return cfg;
 }
 
@@ -520,7 +536,8 @@ Pebble.addEventListener('webviewclosed', function(e) {
 
 Pebble.addEventListener('showConfiguration', function() {
   // Config travels in the URL fragment: the token never reaches the server
-  var baseUrl = 'https://sgitaize.github.io/casiocgm/config/';
+  // Test build: config page with the data source selector (docs/config-beta)
+  var baseUrl = 'https://sgitaize.github.io/casiocgm/config-beta/';
   var stored  = localStorage.getItem('casiocgm_config') || '{}';
   var url     = baseUrl + '#config=' + encodeURIComponent(stored);
   Pebble.openURL(url);
