@@ -234,7 +234,9 @@ function planNextBGFetch(lastBgTsSec, serverNowSec) {
   if (!useSync || !lastBgTsSec || lastBgTsSec <= 0) {
     // No timestamp (error / no data): retry soon so recovery is quick,
     // but never faster than 1 minute.
-    var ms = useSync ? Math.min(manualMs, 60000) : manualMs;
+    // openMinipump: the iPhone app only answers while iOS keeps it awake (around each
+    // pump update), so retry right away; each request waits long (see fetchNightscout).
+    var ms = isOpenMinipump() ? 5000 : (useSync ? Math.min(manualMs, 60000) : manualMs);
     console.log('[CasioCGM] planNextBGFetch: fallback, next in ' + Math.round(ms / 1000) + ' s');
     fetchTimer = setTimeout(fetchNightscout, ms);
     return;
@@ -314,6 +316,19 @@ function bgBaseUrl() {
   return config.nsUrl;
 }
 
+// Connection problems: Nightscout shows NO_CONN right away. With openMinipump short
+// gaps are normal (the app sleeps between pump updates), so the watch keeps the last
+// value (it turns OLD by its timestamp) and only shows NO_CONN after 15 minutes.
+var connFailSince = 0;
+function connFailed() {
+  var now = Date.now();
+  if (!connFailSince) connFailSince = now;
+  if (!isOpenMinipump() || now - connFailSince > 15 * 60 * 1000) {
+    sendBgStatus(BG_STATUS.NO_CONN);
+  }
+  planNextBGFetch(null);
+}
+
 function fetchNightscout() {
   var url = bgBaseUrl();
   if (!url || url.length < 4) {
@@ -332,7 +347,10 @@ function fetchNightscout() {
 
   var req = new XMLHttpRequest();
   req.open('GET', apiUrl, true);
-  req.timeout = 15000;
+  // openMinipump: a request made while iOS has the app suspended is answered as soon
+  // as the pump wakes the app again, so wait long instead of failing fast.
+  var omp = isOpenMinipump();
+  req.timeout = omp ? 50000 : 15000;
   // Guard: on some phones an XHR never calls onload/onerror/ontimeout;
   // the fetch chain (one setTimeout) would then stop for good.
   var done = false;
@@ -341,8 +359,8 @@ function fetchNightscout() {
     done = true;
     console.log('[CasioCGM] Fetch hung, retrying');
     try { req.abort(); } catch (e) {}
-    planNextBGFetch(null);
-  }, 25000);
+    connFailed();
+  }, omp ? 60000 : 25000);
   function finish() {
     if (done) return false;
     done = true;
@@ -393,6 +411,7 @@ function fetchNightscout() {
 
         // OLD after 2x the sensor interval (supercgm); the watch also
         // re-checks this locally on every redraw.
+        connFailSince = 0;
         var status = (nowSec - bgTs > staleMin() * 60) ? BG_STATUS.OLD : BG_STATUS.OK;
 
         // Display strings (mmol with one decimal)
@@ -421,21 +440,18 @@ function fetchNightscout() {
     } else {
       // Unlike supercgm, keep polling after HTTP errors
       console.log('[CasioCGM] HTTP error: ' + req.status);
-      sendBgStatus(BG_STATUS.NO_CONN);
-      planNextBGFetch(null);
+      connFailed();
     }
   };
   req.onerror = function() {
     if (!finish()) return;
     console.log('[CasioCGM] Fetch error');
-    sendBgStatus(BG_STATUS.NO_CONN);
-    planNextBGFetch(null);
+    connFailed();
   };
   req.ontimeout = function() {
     if (!finish()) return;
     console.log('[CasioCGM] Fetch timeout');
-    sendBgStatus(BG_STATUS.NO_CONN);
-    planNextBGFetch(null);
+    connFailed();
   };
   req.send();
 }
