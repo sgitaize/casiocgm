@@ -326,7 +326,49 @@ function connFailed() {
   if (!isOpenMinipump() || now - connFailSince > 15 * 60 * 1000) {
     sendBgStatus(BG_STATUS.NO_CONN);
   }
+  if (isOpenMinipump() && planOmpFetch()) return;
   planNextBGFetch(null);
+}
+
+// openMinipump wake schedule. In the background the iPhone app (and its server) only
+// runs for ~25 s after each pump update (every 5 min). /pebble reports when it was
+// awake last and when it will be next ("ompSync"); fetch exactly then instead of
+// polling all the time. Times are in phone ms (corrected by the server clock offset).
+var OMP_SYNC_KEY = 'casiocgm_ompsync';
+var ompSync = null;   // {next: ms, interval: ms, window: ms}
+try { ompSync = JSON.parse(localStorage.getItem(OMP_SYNC_KEY) || 'null'); } catch (e) { ompSync = null; }
+
+function learnOmpSync(data, serverNow) {
+  var sync = data && data.ompSync;
+  if (!sync || !sync.nextWake) return false;
+  var offset = serverNow ? serverNow - Date.now() : 0;
+  ompSync = {
+    next: parseInt(sync.nextWake, 10) - offset,
+    interval: Math.max(60, parseInt(sync.intervalSec, 10) || 300) * 1000,
+    window: Math.max(10, parseInt(sync.windowSec, 10) || 25) * 1000
+  };
+  try { localStorage.setItem(OMP_SYNC_KEY, JSON.stringify(ompSync)); } catch (e) {}
+  return true;
+}
+
+// Plans the next fetch from the wake schedule. Inside a wake window: retry every 3 s.
+// Otherwise: wait for the next expected wake (+2 s). Returns false without a schedule.
+function planOmpFetch() {
+  if (!ompSync || !ompSync.next) return false;
+  if (fetchTimer) { clearTimeout(fetchTimer); fetchTimer = null; }
+  var now = Date.now();
+  var next = ompSync.next;
+  // Window = [wake, wake + window + 10 s margin]
+  while (next + ompSync.window + 10000 < now) next += ompSync.interval;
+  var delay;
+  if (now >= next) {
+    delay = 3000;                       // inside the window: keep trying
+  } else {
+    delay = Math.max(1000, next - now + 2000);
+  }
+  console.log('[CasioCGM] planOmpFetch: next in ' + Math.round(delay / 1000) + ' s');
+  fetchTimer = setTimeout(fetchNightscout, delay);
+  return true;
 }
 
 function fetchNightscout() {
@@ -430,7 +472,8 @@ function fetchNightscout() {
         console.log('[CasioCGM] CGM: ' + valStr + ' ' + trend +
                     ' age=' + ageMin + 'min ts=' + bgTs + ' status=' + status);
 
-        // Schedule next fetch aligned to this reading's timestamp
+        // openMinipump: follow the app's wake schedule; otherwise align to the reading
+        if (isOpenMinipump() && learnOmpSync(data, serverNow * 1000) && planOmpFetch()) return;
         planNextBGFetch(bgTs, nowSec);
       } catch (ex) {
         console.log('[CasioCGM] Parse error: ' + ex);

@@ -103,6 +103,7 @@ static char s_cgm_trend[8]    = "-";
 static int  s_cgm_status      = CGM_STATUS_NO_CONN; // until first message arrives
 static time_t s_cgm_ts        = 0;   // reading timestamp; watch ages locally
 static int  s_cgm_sgv         = 0;   // raw mg/dL for range comparison
+static void save_cgm(void);         // keeps the last reading across restarts (see PKEY_CGM)
 static int  s_show_seconds    = 0;   // 1=small seconds next to HH:MM
 static int  s_vibe_on_low     = 0;
 static int  s_vibe_on_high    = 0;
@@ -820,6 +821,8 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
       s_cgm_sgv = 0;
       s_cgm_delta[0] = '\0';
       s_cgm_trend[0] = '\0';
+    } else {
+      save_cgm();
     }
     check_bg_alerts();
   }
@@ -844,6 +847,7 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
 #define PKEY_URL     101
 #define PKEY_TOKEN   102
 #define PKEY_LABELS  103
+#define PKEY_CGM     104   // last reading, shown after a restart until a new one arrives
 #define CFG_VERSION  1
 
 typedef struct {
@@ -956,6 +960,50 @@ static void load_persist_legacy(void) {
 #undef LI
 }
 
+// Last reading: without it every restart of the watchface (notification, other app)
+// showed NOCON until the phone delivered a new value – with openMinipump that can take
+// up to 5 minutes. Restored with its timestamp, so it turns OLDBG by age as usual.
+typedef struct {
+  uint8_t version;
+  char value[16];
+  char delta[16];
+  char trend[8];
+  int32_t ts;
+  int32_t sgv;
+} PersistCgm;
+#define CGM_PERSIST_VERSION 1
+
+static void save_cgm(void) {
+  if (s_cgm_sgv <= 0 || s_cgm_ts <= 0) return;
+  if (s_cgm_status != CGM_STATUS_OK && s_cgm_status != CGM_STATUS_OLD) return;
+  PersistCgm g;
+  memset(&g, 0, sizeof(g));
+  g.version = CGM_PERSIST_VERSION;
+  memcpy(g.value, s_cgm_value, sizeof(g.value));
+  memcpy(g.delta, s_cgm_delta, sizeof(g.delta));
+  memcpy(g.trend, s_cgm_trend, sizeof(g.trend));
+  g.ts = (int32_t)s_cgm_ts;
+  g.sgv = s_cgm_sgv;
+  persist_data_if_changed(PKEY_CGM, &g, sizeof(g));
+}
+
+static void load_cgm(void) {
+  PersistCgm g;
+  if (!persist_exists(PKEY_CGM) ||
+      persist_read_data(PKEY_CGM, &g, sizeof(g)) != (int)sizeof(g) ||
+      g.version != CGM_PERSIST_VERSION) return;
+  if (g.sgv <= 0 || time(NULL) - (time_t)g.ts > 6 * 3600) return;
+  g.value[sizeof(g.value) - 1] = '\0';
+  g.delta[sizeof(g.delta) - 1] = '\0';
+  g.trend[sizeof(g.trend) - 1] = '\0';
+  memcpy(s_cgm_value, g.value, sizeof(s_cgm_value));
+  memcpy(s_cgm_delta, g.delta, sizeof(s_cgm_delta));
+  memcpy(s_cgm_trend, g.trend, sizeof(s_cgm_trend));
+  s_cgm_ts = (time_t)g.ts;
+  s_cgm_sgv = g.sgv;
+  s_cgm_status = CGM_STATUS_OK;   // staleness follows from the timestamp
+}
+
 static void load_persist(void) {
   PersistCfg c;
   if (persist_exists(PKEY_CFG) &&
@@ -1010,6 +1058,7 @@ static void window_unload(Window *w) {
 // ── App lifecycle ─────────────────────────────────────────────────────────
 static void init(void) {
   load_persist();
+  load_cgm();
   battery_state_service_subscribe(battery_state_handler);
   s_batt_pct = (int)battery_state_service_peek().charge_percent;
   s_window = window_create();
