@@ -19,6 +19,7 @@ var FETCH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes (legacy fallback)
 var configDefaults = {
   bgSource: 'nightscout',    // 'nightscout' | 'openminipump' (local server of the iPhone app)
   ompUrl: 'http://127.0.0.1:17580',
+  ompFallback: false,        // openMinipump: use nsUrl/nsToken as fallback when the app is unreachable
   syncBgWithInterval: true,  // sync fetch to CGM timestamp
   bgFetchIntervalMin: 5,     // expected CGM sensor interval (min)
   bgManualIntervalMin: 5     // fallback / max fetch interval (min)
@@ -56,7 +57,7 @@ var K = {
 };
 
 // CGM status semantics (must match main.c / mirrors Nightscout-supercgm)
-var BG_STATUS = { OK: 0, NO_DATA: 1, NO_CONN: 2, OLD: 3 };
+var BG_STATUS = { OK: 0, NO_DATA: 1, NO_CONN: 2, OLD: 3, NO_APP: 4 };
 
 // ── Trend direction → single ASCII char (drawn graphically in C) ──────────
 function trendArrow(direction) {
@@ -320,14 +321,38 @@ function bgBaseUrl() {
 // gaps are normal (the app sleeps between pump updates), so the watch keeps the last
 // value (it turns OLD by its timestamp) and only shows NO_CONN after 15 minutes.
 var connFailSince = 0;
-function connFailed() {
+function connFailed(viaFallback) {
   var now = Date.now();
   if (!connFailSince) connFailSince = now;
-  if (!isOpenMinipump() || now - connFailSince > 15 * 60 * 1000) {
+  if (!isOpenMinipump()) {
     sendBgStatus(BG_STATUS.NO_CONN);
+    planNextBGFetch(null);
+    return;
   }
-  if (isOpenMinipump() && planOmpFetch()) return;
+  // openMinipump: after a missed wake window try the fallback Nightscout (at most
+  // every 4.5 min, internet costs battery). Without fallback or if it fails too:
+  // after 15 min tell the user to open the app (NO_APP), the watch keeps the last
+  // value until then.
+  if (!viaFallback && fallbackDue(now)) {
+    lastFallbackTry = now;
+    fetchNightscout(true);
+    return;
+  }
+  if (now - connFailSince > 15 * 60 * 1000 && now - lastFallbackOk > 15 * 60 * 1000) {
+    sendBgStatus(BG_STATUS.NO_APP);
+  }
+  if (planOmpFetch()) return;
   planNextBGFetch(null);
+}
+
+var lastFallbackTry = 0;
+var lastFallbackOk = 0;
+function hasFallback() {
+  return isOpenMinipump() && config.ompFallback && config.nsUrl && config.nsUrl.length > 4;
+}
+function fallbackDue(now) {
+  return hasFallback() && connFailSince && now - connFailSince > 6 * 60 * 1000 &&
+         now - lastFallbackTry > 270000;
 }
 
 // openMinipump wake schedule. In the background the iPhone app (and its server) only
@@ -371,8 +396,9 @@ function planOmpFetch() {
   return true;
 }
 
-function fetchNightscout() {
-  var url = bgBaseUrl();
+function fetchNightscout(fallback) {
+  fallback = fallback === true;
+  var url = fallback ? config.nsUrl : bgBaseUrl();
   if (!url || url.length < 4) {
     planNextBGFetch(null);
     return;
@@ -382,7 +408,7 @@ function fetchNightscout() {
   // e.g. token-in-URL workaround)
   url = url.replace(/\/$/, '');
   var apiUrl = (url.indexOf('/pebble') >= 0) ? url : url + '/pebble';
-  if (!isOpenMinipump() && config.nsToken && apiUrl.indexOf('token=') < 0) {
+  if ((fallback || !isOpenMinipump()) && config.nsToken && apiUrl.indexOf('token=') < 0) {
     apiUrl += (apiUrl.indexOf('?') >= 0 ? '&' : '?') +
               'token=' + encodeURIComponent(config.nsToken);
   }
@@ -391,7 +417,8 @@ function fetchNightscout() {
   req.open('GET', apiUrl, true);
   // openMinipump: a request made while iOS has the app suspended is answered as soon
   // as the pump wakes the app again, so wait long instead of failing fast.
-  var omp = isOpenMinipump();
+  var omp = isOpenMinipump() && !fallback;
+  if (fallback) console.log('[CasioCGM] Fallback: Nightscout');
   req.timeout = omp ? 50000 : 15000;
   // Guard: on some phones an XHR never calls onload/onerror/ontimeout;
   // the fetch chain (one setTimeout) would then stop for good.
@@ -401,7 +428,7 @@ function fetchNightscout() {
     done = true;
     console.log('[CasioCGM] Fetch hung, retrying');
     try { req.abort(); } catch (e) {}
-    connFailed();
+    connFailed(fallback);
   }, omp ? 60000 : 25000);
   function finish() {
     if (done) return false;
@@ -453,7 +480,7 @@ function fetchNightscout() {
 
         // OLD after 2x the sensor interval (supercgm); the watch also
         // re-checks this locally on every redraw.
-        connFailSince = 0;
+        if (fallback) lastFallbackOk = Date.now(); else connFailSince = 0;
         var status = (nowSec - bgTs > staleMin() * 60) ? BG_STATUS.OLD : BG_STATUS.OK;
 
         // Display strings (mmol with one decimal)
@@ -473,6 +500,8 @@ function fetchNightscout() {
                     ' age=' + ageMin + 'min ts=' + bgTs + ' status=' + status);
 
         // openMinipump: follow the app's wake schedule; otherwise align to the reading
+        // Fallback value shown; keep trying the local app on its wake schedule.
+        if (fallback) { if (!planOmpFetch()) planNextBGFetch(null); return; }
         if (isOpenMinipump() && learnOmpSync(data, serverNow * 1000) && planOmpFetch()) return;
         planNextBGFetch(bgTs, nowSec);
       } catch (ex) {
@@ -483,18 +512,18 @@ function fetchNightscout() {
     } else {
       // Unlike supercgm, keep polling after HTTP errors
       console.log('[CasioCGM] HTTP error: ' + req.status);
-      connFailed();
+      connFailed(fallback);
     }
   };
   req.onerror = function() {
     if (!finish()) return;
     console.log('[CasioCGM] Fetch error');
-    connFailed();
+    connFailed(fallback);
   };
   req.ontimeout = function() {
     if (!finish()) return;
     console.log('[CasioCGM] Fetch timeout');
-    connFailed();
+    connFailed(fallback);
   };
   req.send();
 }
@@ -558,6 +587,7 @@ function applyDefaults(cfg) {
   if (!cfg.bgManualIntervalMin)             cfg.bgManualIntervalMin = configDefaults.bgManualIntervalMin;
   if (!cfg.bgSource)                        cfg.bgSource = configDefaults.bgSource;
   if (!cfg.ompUrl)                          cfg.ompUrl = configDefaults.ompUrl;
+  cfg.ompFallback = cfg.ompFallback === true || cfg.ompFallback === '1' || cfg.ompFallback === 1;
   return cfg;
 }
 

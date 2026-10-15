@@ -54,7 +54,8 @@ typedef enum {
   CGM_STATUS_OK      = 0,  // valid reading
   CGM_STATUS_NO_DATA = 1,  // server responded, nothing parseable
   CGM_STATUS_NO_CONN = 2,  // network / phone unreachable
-  CGM_STATUS_OLD     = 3   // JS confirmed reading is stale
+  CGM_STATUS_OLD     = 3,  // JS confirmed reading is stale
+  CGM_STATUS_NO_APP  = 4   // openMinipump unreachable for 15 min: open the iPhone app
 } CgmStatus;
 
 // ── State ─────────────────────────────────────────────────────────────────
@@ -151,6 +152,7 @@ static bool cgm_is_stale(void) {
 
 static const char *cgm_status_text(void) {
   if (s_cgm_status == CGM_STATUS_NO_CONN)               return "NOCON";
+  if (s_cgm_status == CGM_STATUS_NO_APP)                return "NOAPP";
   if (s_cgm_status == CGM_STATUS_NO_DATA || s_cgm_sgv <= 0) return "NO-BG";
   if (cgm_is_stale())                                   return "OLDBG";
   return NULL;
@@ -620,6 +622,8 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
       snprintf(l1, sizeof(l1), "NO URL");     snprintf(l2, sizeof(l2), "CGM MONITOR");
     } else if (s_cgm_status == CGM_STATUS_NO_CONN) {
       snprintf(l1, sizeof(l1), "NO CONN");    snprintf(l2, sizeof(l2), "CGM MONITOR");
+    } else if (s_cgm_status == CGM_STATUS_NO_APP) {
+      snprintf(l1, sizeof(l1), "OPEN APP");   snprintf(l2, sizeof(l2), "IPUMP-MINI");
     } else if (s_cgm_status == CGM_STATUS_NO_DATA || s_cgm_sgv <= 0) {
       snprintf(l1, sizeof(l1), "NO BG");      snprintf(l2, sizeof(l2), "CGM MONITOR");
     } else if (!cgm_fresh) {
@@ -817,7 +821,8 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   if ((t = dict_find(iter, KEY_CGM_STATUS))) {
     s_cgm_status = (int)t->value->int32;
     // For OLD the value is still valid (just stale) → keep it.
-    if (s_cgm_status == CGM_STATUS_NO_DATA || s_cgm_status == CGM_STATUS_NO_CONN) {
+    if (s_cgm_status == CGM_STATUS_NO_DATA || s_cgm_status == CGM_STATUS_NO_CONN ||
+        s_cgm_status == CGM_STATUS_NO_APP) {
       s_cgm_sgv = 0;
       s_cgm_delta[0] = '\0';
       s_cgm_trend[0] = '\0';
