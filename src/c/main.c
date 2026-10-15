@@ -1,4 +1,5 @@
 #include <pebble.h>
+#include "cgm.h"   // shared CGM logic (github.com/sgitaize/pebble-cgm)
 
 // ── Keys ─────────────────────────────────────────────────────────────────
 #define KEY_NS_URL          0
@@ -53,13 +54,6 @@
 #define KEY_OMP_INTERVAL    65   // openMinipump: wake interval (s), usually 300
 
 // ── CGM status (mirrors Nightscout-supercgm) ─────────────────────────────
-typedef enum {
-  CGM_STATUS_OK      = 0,  // valid reading
-  CGM_STATUS_NO_DATA = 1,  // server responded, nothing parseable
-  CGM_STATUS_NO_CONN = 2,  // network / phone unreachable
-  CGM_STATUS_OLD     = 3,  // JS confirmed reading is stale
-  CGM_STATUS_NO_APP  = 4   // openMinipump unreachable for 15 min: open the iPhone app
-} CgmStatus;
 
 // ── State ─────────────────────────────────────────────────────────────────
 static Window   *s_window;
@@ -311,15 +305,6 @@ static void battery_state_handler(BatteryChargeState state) {
 //  203..228  yellow banner text (editable, default "E-PAPER DISPLAY")
 
 // Yellow "heart rate" heart of the original, reused as CGM trend icon
-// Tiny cloud (about 11 x 7 px): three circles on a flat base.
-static void draw_cloud(GContext *ctx, GPoint c, GColor color) {
-  graphics_context_set_fill_color(ctx, color);
-  graphics_fill_circle(ctx, GPoint(c.x - 3, c.y + 1), 2);
-  graphics_fill_circle(ctx, GPoint(c.x, c.y - 1), 3);
-  graphics_fill_circle(ctx, GPoint(c.x + 3, c.y + 1), 2);
-  graphics_fill_rect(ctx, GRect(c.x - 4, c.y + 1, 9, 3), 1, GCornersAll);
-}
-
 static void draw_heart(GContext *ctx, GPoint c, int r, GColor col) {
   graphics_context_set_fill_color(ctx, col);
   graphics_fill_circle(ctx, GPoint(c.x - r, c.y - r / 2), r);
@@ -653,7 +638,7 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
     // Small cloud: the shown value came from the Nightscout fallback, not the local app.
     if (s_cgm_source == 1 && s_cgm_sgv > 0) {
-      draw_cloud(ctx, GPoint(PX(100), y_cgs + PY(4)), color_from_int(s_color_cgm_banner));
+      cgm_draw_cloud(ctx, GPoint(PX(100), y_cgs + PY(4)), color_from_int(s_color_cgm_banner));
     }
     graphics_context_set_text_color(ctx, cgm_fresh ? color_from_int(s_color_cgm_info)
                                                    : color_from_int(s_color_cgm_banner));
@@ -709,43 +694,6 @@ static void request_bg_fetch(void) {
     dict_write_uint8(iter, KEY_REQUEST_BG, 1);
     app_message_outbox_send();
   }
-}
-
-// ── openMinipump wake timer ──────────────────────────────────────────────
-// The iPhone app answers only for ~25 s after each pump update. PebbleKit JS timers are
-// throttled while the Pebble app is in the background, so the watch (reliable clock)
-// asks the phone exactly at the announced wake: at +3 s, +11 s and +19 s, then moves on
-// to the next expected wake by itself until the phone sends a new schedule.
-static time_t s_omp_next = 0;
-static int s_omp_interval = 0;
-static int s_omp_tries = 0;
-static AppTimer *s_omp_timer = NULL;
-
-static void omp_schedule(void);
-
-static void omp_wake_timer(void *data) {
-  s_omp_timer = NULL;
-  APP_LOG(APP_LOG_LEVEL_INFO, "omp wake try %d", s_omp_tries);
-  request_bg_fetch();
-  if (++s_omp_tries < 3) {
-    s_omp_timer = app_timer_register(8000, omp_wake_timer, NULL);
-    return;
-  }
-  s_omp_tries = 0;
-  s_omp_next += s_omp_interval;
-  omp_schedule();
-}
-
-static void omp_schedule(void) {
-  if (s_omp_timer) { app_timer_cancel(s_omp_timer); s_omp_timer = NULL; }
-  if (s_omp_next <= 0 || s_omp_interval < 60) return;
-  time_t now = time(NULL);
-  while (s_omp_next + 30 < now) s_omp_next += s_omp_interval;
-  int ms = (int)(s_omp_next - now + 3) * 1000;
-  if (ms < 500) ms = 500;
-  s_omp_tries = 0;
-  APP_LOG(APP_LOG_LEVEL_INFO, "omp next in %d ms", ms);
-  s_omp_timer = app_timer_register((uint32_t)ms, omp_wake_timer, NULL);
 }
 
 // Vibrate on threshold breach, 10-minute cooldown per direction (supercgm)
@@ -867,11 +815,7 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   GS(KEY_CGM_TREND,s_cgm_trend);
   GI(KEY_CGM_SGV,s_cgm_sgv);
   GI(KEY_CGM_SOURCE,s_cgm_source);
-  if ((t = dict_find(iter, KEY_OMP_NEXT))) {
-    s_omp_next = (time_t)t->value->int32;
-    if ((t = dict_find(iter, KEY_OMP_INTERVAL))) s_omp_interval = (int)t->value->int32;
-    omp_schedule();
-  }
+  cgm_wake_handle_inbox(iter, KEY_OMP_NEXT, KEY_OMP_INTERVAL);
   if ((t = dict_find(iter, KEY_CGM_TS))) {
     s_cgm_ts = (time_t)t->value->int32;
   } else if ((t = dict_find(iter, KEY_CGM_AGE))) {
@@ -1025,47 +969,32 @@ static void load_persist_legacy(void) {
 #undef LI
 }
 
-// Last reading: without it every restart of the watchface (notification, other app)
-// showed NOCON until the phone delivered a new value – with openMinipump that can take
-// up to 5 minutes. Restored with its timestamp, so it turns OLDBG by age as usual.
-typedef struct {
-  uint8_t version;
-  char value[16];
-  char delta[16];
-  char trend[8];
-  int32_t ts;
-  int32_t sgv;
-} PersistCgm;
-#define CGM_PERSIST_VERSION 1
-
+// Last reading (pebble-cgm CgmLast): shown right after a restart of the face instead of
+// NOCON until the phone delivers a new value; staleness follows from its timestamp.
 static void save_cgm(void) {
   if (s_cgm_sgv <= 0 || s_cgm_ts <= 0) return;
   if (s_cgm_status != CGM_STATUS_OK && s_cgm_status != CGM_STATUS_OLD) return;
-  PersistCgm g;
-  memset(&g, 0, sizeof(g));
-  g.version = CGM_PERSIST_VERSION;
-  memcpy(g.value, s_cgm_value, sizeof(g.value));
-  memcpy(g.delta, s_cgm_delta, sizeof(g.delta));
-  memcpy(g.trend, s_cgm_trend, sizeof(g.trend));
-  g.ts = (int32_t)s_cgm_ts;
-  g.sgv = s_cgm_sgv;
-  persist_data_if_changed(PKEY_CGM, &g, sizeof(g));
+  CgmLast last;
+  memset(&last, 0, sizeof(last));
+  last.fallback = (uint8_t)s_cgm_source;
+  last.ts = (int32_t)s_cgm_ts;
+  last.sgv = s_cgm_sgv;
+  last.delta = -9999;
+  snprintf(last.value, sizeof(last.value), "%s", s_cgm_value);
+  snprintf(last.delta_text, sizeof(last.delta_text), "%s", s_cgm_delta);
+  snprintf(last.trend, sizeof(last.trend), "%s", s_cgm_trend);
+  cgm_last_save(PKEY_CGM, &last);
 }
 
 static void load_cgm(void) {
-  PersistCgm g;
-  if (!persist_exists(PKEY_CGM) ||
-      persist_read_data(PKEY_CGM, &g, sizeof(g)) != (int)sizeof(g) ||
-      g.version != CGM_PERSIST_VERSION) return;
-  if (g.sgv <= 0 || time(NULL) - (time_t)g.ts > 6 * 3600) return;
-  g.value[sizeof(g.value) - 1] = '\0';
-  g.delta[sizeof(g.delta) - 1] = '\0';
-  g.trend[sizeof(g.trend) - 1] = '\0';
-  memcpy(s_cgm_value, g.value, sizeof(s_cgm_value));
-  memcpy(s_cgm_delta, g.delta, sizeof(s_cgm_delta));
-  memcpy(s_cgm_trend, g.trend, sizeof(s_cgm_trend));
-  s_cgm_ts = (time_t)g.ts;
-  s_cgm_sgv = g.sgv;
+  CgmLast last;
+  if (!cgm_last_load(PKEY_CGM, &last, 6 * 3600)) return;
+  snprintf(s_cgm_value, sizeof(s_cgm_value), "%s", last.value);
+  snprintf(s_cgm_delta, sizeof(s_cgm_delta), "%s", last.delta_text);
+  snprintf(s_cgm_trend, sizeof(s_cgm_trend), "%s", last.trend);
+  s_cgm_ts = (time_t)last.ts;
+  s_cgm_sgv = last.sgv;
+  s_cgm_source = last.fallback;
   s_cgm_status = CGM_STATUS_OK;   // staleness follows from the timestamp
 }
 
@@ -1124,6 +1053,7 @@ static void window_unload(Window *w) {
 static void init(void) {
   load_persist();
   load_cgm();
+  cgm_wake_init(request_bg_fetch);
   battery_state_service_subscribe(battery_state_handler);
   s_batt_pct = (int)battery_state_service_peek().charge_percent;
   s_window = window_create();
@@ -1147,6 +1077,7 @@ static void init(void) {
 }
 
 static void deinit(void) {
+  cgm_wake_deinit();
   tick_timer_service_unsubscribe();
   accel_tap_service_unsubscribe();
   connection_service_unsubscribe();

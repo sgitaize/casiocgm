@@ -121,7 +121,10 @@ module.exports = function (opts) {
     }
     // iPump-mini: short gaps are normal (the app sleeps between pump updates). After a
     // missed window try the fallback; NO_APP only after 15 min without any value.
-    if (!fallback && hasFallback() && now - connFailSince > 6 * 60000 && now - lastFallbackTry > 270000) {
+    // With a known wake schedule a failed request means the expected window did not
+    // open (app not running): fall back right after it. Without a schedule wait 6 min.
+    var missedWindow = ompSync && ompSync.next ? now - connFailSince > 45000 || connFailSince === now : now - connFailSince > 6 * 60000;
+    if (!fallback && hasFallback() && missedWindow && now - lastFallbackTry > 270000) {
       lastFallbackTry = now;
       fetch(true);
       return;
