@@ -11,12 +11,14 @@
  */
 
 var config = {};
-var fetchTimer   = null;  // CGM fetch timer (setTimeout)
 var weatherTimer = null;  // Weather refresh timer (setInterval)
 var FETCH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes (legacy fallback)
 
 // ── Config defaults ───────────────────────────────────────────────────────
 var configDefaults = {
+  bgSource: 'nightscout',    // 'nightscout' | 'openminipump' (local server of the iPhone app)
+  ompUrl: 'http://127.0.0.1:17580',
+  ompFallback: false,        // openMinipump: use nsUrl/nsToken as fallback when the app is unreachable
   syncBgWithInterval: true,  // sync fetch to CGM timestamp
   bgFetchIntervalMin: 5,     // expected CGM sensor interval (min)
   bgManualIntervalMin: 5     // fallback / max fetch interval (min)
@@ -49,12 +51,12 @@ var K = {
   CGM_VALUE:          50, CGM_DELTA:      51, CGM_TREND:       52,
   CGM_AGE:         53, STEPS:          54, HR:              55,
   WEATHER_TEMP:    56, WEATHER_ICON:   57, BATT_PCT:        58,
-  CGM_STATUS:      59, CGM_TS:         60, CGM_SGV:         61,
+  CGM_STATUS:      59, CGM_TS:         60, CGM_SGV:         61, CGM_SOURCE: 63, OMP_NEXT: 64, OMP_INTERVAL: 65,
   REQUEST_BG:      62
 };
 
 // CGM status semantics (must match main.c / mirrors Nightscout-supercgm)
-var BG_STATUS = { OK: 0, NO_DATA: 1, NO_CONN: 2, OLD: 3 };
+var BG_STATUS = { OK: 0, NO_DATA: 1, NO_CONN: 2, OLD: 3, NO_APP: 4 };
 
 // ── Trend direction → single ASCII char (drawn graphically in C) ──────────
 function trendArrow(direction) {
@@ -117,8 +119,9 @@ function staleMin() {
 // ── Send config to watch ──────────────────────────────────────────────────
 function sendConfig() {
   var msg = {};
-  msg[K.NS_URL]          = config.nsUrl         || '';
-  msg[K.NS_TOKEN]        = config.nsToken        || '';
+  // The watch only checks whether a source is configured; send the effective URL.
+  msg[K.NS_URL]          = bgBaseUrl()           || '';
+  msg[K.NS_TOKEN]        = isOpenMinipump() ? '' : (config.nsToken || '');
   msg[K.NS_UNITS]        = parseInt(config.nsUnits)     || 0;
   // Thresholds are entered in the display unit but always sent as mg/dL,
   // because the watch compares against the raw sgv (CGM_SGV, mg/dL).
@@ -166,110 +169,6 @@ function sendConfig() {
   sendMsg(msg, 'Config', function() { console.log('[CasioCGM] Config sent'); });
 }
 
-// ── Smart CGM scheduling ──────────────────────────────────────────────────
-// Base logic from supercgm: next fetch = lastReading + sensor interval +
-// offset, measured against Nightscout server time (status[0].now) to avoid
-// phone clock skew.
-//
-// Battery extension (learned upload lag): many uploaders/bridges put a
-// reading into Nightscout minutes after it was measured. Fetching at the
-// fixed +30 s then means ~10 extra 15 s polls per reading. So the upload lag
-// is learned and the fetch is planned at reading + interval + lag + 10 s:
-//   - a new reading appeared between the previous and this fetch:
-//     previous fetch ≤ 20 s ago → exact sample (now - reading time):
-//     increases taken at once, decreases smoothed (EMA 50 %);
-//     previous fetch longer ago but already later than the learned lag →
-//     raise to the middle of that window; otherwise only an upper bound →
-//     lag = min(lag, sample)
-//   - probe once per reading at half the learned lag (min. the supercgm
-//     +30 s): a hit there halves the lag, so a lag learned in a slow phase
-//     drops back within a few readings (before: probe fixed at +30 s, so an
-//     uploader at e.g. 45 s never lowered it → values shown minutes late,
-//     watch showed OLD BG for > 10 min)
-//   - lag capped at one interval (was 2x: the fetch then fell after the
-//     reading went stale)
-//   - overdue: poll every 15 s, after 2 min overdue (sensor gap/warm-up)
-//     only every 60 s
-var LAG_KEY        = 'casiocgm_upload_lag';
-var lagSec         = Math.max(0, parseInt(localStorage.getItem(LAG_KEY), 10) || 0);
-var lastSeenTsSec  = 0;      // reading timestamp of the previous fetch
-var prevFetchNow   = 0;      // server time of the previous fetch
-var prevMissed     = false;  // previous fetch returned no newer reading
-
-function learnUploadLag(bgTsSec, serverNowSec, sensorSec) {
-  if (lastSeenTsSec && bgTsSec > lastSeenTsSec) {
-    // the reading appeared in (previous fetch, this fetch]
-    var sample = Math.max(0, serverNowSec - bgTsSec);            // upper bound
-    var lower  = prevMissed ? prevFetchNow - bgTsSec : -1;       // lower bound
-    if (prevMissed && serverNowSec - prevFetchNow <= 20) {
-      lagSec = sample > lagSec ? sample : Math.round((lagSec + sample) / 2);
-    } else if (lower > lagSec) {
-      lagSec = Math.round((lower + sample) / 2);  // later than learned: raise
-                                                  // to the middle of the window
-    } else {
-      lagSec = Math.min(lagSec, sample);
-    }
-    lagSec = Math.min(lagSec, sensorSec);
-    try { localStorage.setItem(LAG_KEY, String(lagSec)); } catch (e) {}
-  }
-  prevMissed = (bgTsSec === lastSeenTsSec);
-  lastSeenTsSec = bgTsSec;
-  prevFetchNow = serverNowSec;
-}
-
-// lastBgTsSec: Unix timestamp (seconds) of the last CGM reading, or 0/null.
-// serverNowSec: Nightscout server time of that response.
-function planNextBGFetch(lastBgTsSec, serverNowSec) {
-  if (fetchTimer) { clearTimeout(fetchTimer); fetchTimer = null; }
-
-  var manualMin = Math.max(1, parseInt(config.bgManualIntervalMin || configDefaults.bgManualIntervalMin, 10));
-  var manualMs  = manualMin * 60 * 1000;
-  var useSync   = config.syncBgWithInterval !== false &&
-                  config.syncBgWithInterval !== '0'  &&
-                  config.syncBgWithInterval !== 0;
-
-  if (!useSync || !lastBgTsSec || lastBgTsSec <= 0) {
-    // No timestamp (error / no data): retry soon so recovery is quick,
-    // but never faster than 1 minute.
-    var ms = useSync ? Math.min(manualMs, 60000) : manualMs;
-    console.log('[CasioCGM] planNextBGFetch: fallback, next in ' + Math.round(ms / 1000) + ' s');
-    fetchTimer = setTimeout(fetchNightscout, ms);
-    return;
-  }
-
-  var sensorMin = Math.max(1, parseInt(config.bgFetchIntervalMin || configDefaults.bgFetchIntervalMin, 10));
-  var sensorSec = sensorMin * 60;
-  var nowSec    = (serverNowSec && isFinite(serverNowSec) && serverNowSec > 0)
-                  ? serverNowSec : Math.floor(Date.now() / 1000);
-  learnUploadLag(lastBgTsSec, nowSec, sensorSec);
-
-  // supercgm: +30 s; with a learned upload lag: lag + 10 s margin
-  var offsetSec = Math.max(30, lagSec + 10);
-  var dueSec    = lastBgTsSec + sensorSec + offsetSec;
-  var probeSec  = lastBgTsSec + sensorSec + Math.max(30, Math.round(lagSec / 2));
-  var delay     = (dueSec - nowSec) * 1000;
-  // probe at half the lag once per reading, so a faster uploader is
-  // noticed quickly (lag halves on every hit)
-  if (dueSec - probeSec >= 30 && probeSec > nowSec + 5) {
-    delay = (probeSec - nowSec) * 1000;
-  }
-  if (delay < 15000) {
-    // overdue: poll fast at first, slow down in longer gaps (battery)
-    delay = (nowSec - dueSec > 120) ? 60000 : 15000;
-  }
-  if (delay > manualMs * 3) delay = manualMs;  // clamp if ts looks wrong (future)
-
-  console.log('[CasioCGM] planNextBGFetch: synced, lag ' + lagSec + ' s, next in ' +
-              Math.round(delay / 1000) + ' s');
-  fetchTimer = setTimeout(fetchNightscout, delay);
-}
-
-// ── Fetch Nightscout ──────────────────────────────────────────────────────
-// Uses the /pebble endpoint:
-//   GET <nsUrl>/pebble
-//   Response: {"bgs":[{"sgv":"108","trend":1,"direction":"DoubleUp",
-//               "datetime":1780980660000,"bgdelta":18,...}],...}
-// Send a BG status (optionally with data) to the watch. The watch keeps the
 // last value on OLD, clears it on NO_DATA / NO_CONN.
 function sendBgStatus(status, extra) {
   var msg = extra || {};
@@ -279,17 +178,7 @@ function sendBgStatus(status, extra) {
 
 // supercgm parsers: auto-detect whether Nightscout sends mmol (float < 40)
 // or mg/dL. The watch compares thresholds against mg/dL, so both return mg/dL.
-function parseSgvMgdl(raw) {
-  var f = parseFloat(raw);
-  if (!isFinite(f) || f <= 0) return NaN;
-  return f < 40 ? Math.round(f * 18) : Math.round(f);
-}
 
-function parseDeltaMgdl(raw) {
-  var f = parseFloat(raw);
-  if (!isFinite(f)) return NaN;
-  return (Math.abs(f) < 30 && String(raw).indexOf('.') >= 0) ? f * 18 : f;
-}
 
 // Delta display like supercgm: "+3" / "-0.2" / "+-0", "--" when unknown
 function formatDelta(deltaMgdl, mmol) {
@@ -300,131 +189,55 @@ function formatDelta(deltaMgdl, mmol) {
   return (v > 0 ? '+' : '-') + s;
 }
 
-function fetchNightscout() {
-  var url = config.nsUrl;
-  if (!url || url.length < 4) {
-    planNextBGFetch(null);
-    return;
-  }
-
-  // Remove trailing slash, then append /pebble (unless already present,
-  // e.g. token-in-URL workaround)
-  url = url.replace(/\/$/, '');
-  var apiUrl = (url.indexOf('/pebble') >= 0) ? url : url + '/pebble';
-  if (config.nsToken && apiUrl.indexOf('token=') < 0) {
-    apiUrl += (apiUrl.indexOf('?') >= 0 ? '&' : '?') +
-              'token=' + encodeURIComponent(config.nsToken);
-  }
-
-  var req = new XMLHttpRequest();
-  req.open('GET', apiUrl, true);
-  req.timeout = 15000;
-  // Guard: on some phones an XHR never calls onload/onerror/ontimeout;
-  // the fetch chain (one setTimeout) would then stop for good.
-  var done = false;
-  var guard = setTimeout(function() {
-    if (done) return;
-    done = true;
-    console.log('[CasioCGM] Fetch hung, retrying');
-    try { req.abort(); } catch (e) {}
-    planNextBGFetch(null);
-  }, 25000);
-  function finish() {
-    if (done) return false;
-    done = true;
-    clearTimeout(guard);
-    return true;
-  }
-  req.onload = function() {
-    if (!finish()) return;
-    if (req.status === 200) {
-      try {
-        var data = JSON.parse(req.responseText);
-        // Handle Nightscout /pebble ({bgs:[...]}), plain arrays and flat
-        // objects (supercgm parser)
-        var bg = null;
-        var serverNow = 0;
-        if (data && Array.isArray(data.bgs) && data.bgs.length > 0) {
-          bg = data.bgs[0];
-          // Prefer Nightscout server time over the phone clock (avoids skew)
-          if (Array.isArray(data.status) && data.status[0]) {
-            serverNow = parseInt(data.status[0].now || 0, 10) || 0;
-          }
-        } else if (Array.isArray(data) && data.length > 0) {
-          bg = data[0];
-        } else if (data && (data.sgv || data.value || data.glucose)) {
-          bg = data;
-        }
-        if (!bg) {
-          sendBgStatus(BG_STATUS.NO_DATA);
-          planNextBGFetch(null);
-          return;
-        }
-
-        var sgv    = parseSgvMgdl(bg.sgv || bg.glucose || bg.value) || 0;
-        var delta  = parseDeltaMgdl(bg.bgdelta);
-        var trend  = trendArrow(bg.direction || bg.trend || '');
-        var bgTs   = parseInt(bg.datetime || bg.date || bg.mills || bg.timestamp || 0, 10) || 0;
-        if (bgTs > 1000000000000) bgTs = Math.floor(bgTs / 1000);        // ms -> s
-        if (serverNow > 1000000000000) serverNow = Math.floor(serverNow / 1000);
-        var nowSec = serverNow > 0 ? serverNow : Math.floor(Date.now() / 1000);
-        if (!bgTs) bgTs = nowSec;
-        var ageMin = Math.max(0, Math.round((nowSec - bgTs) / 60));
-
-        if (sgv <= 0) {
-          sendBgStatus(BG_STATUS.NO_DATA);
-          planNextBGFetch(null);
-          return;
-        }
-
-        // OLD after 2x the sensor interval (supercgm); the watch also
-        // re-checks this locally on every redraw.
-        var status = (nowSec - bgTs > staleMin() * 60) ? BG_STATUS.OLD : BG_STATUS.OK;
-
-        // Display strings (mmol with one decimal)
-        var mmol = parseInt(config.nsUnits) === 1;
-        var valStr   = mmol ? (sgv / 18.0).toFixed(1) : String(sgv);
-        var deltaStr = formatDelta(delta, mmol);
-
-        var msg = {};
-        msg[K.CGM_VALUE] = valStr;
-        msg[K.CGM_DELTA] = deltaStr;
-        msg[K.CGM_TREND] = trend;
-        msg[K.CGM_AGE]   = ageMin;
-        msg[K.CGM_TS]    = bgTs;
-        msg[K.CGM_SGV]   = sgv;
-        sendBgStatus(status, msg);
-        console.log('[CasioCGM] CGM: ' + valStr + ' ' + trend +
-                    ' age=' + ageMin + 'min ts=' + bgTs + ' status=' + status);
-
-        // Schedule next fetch aligned to this reading's timestamp
-        planNextBGFetch(bgTs, nowSec);
-      } catch (ex) {
-        console.log('[CasioCGM] Parse error: ' + ex);
-        sendBgStatus(BG_STATUS.NO_DATA);
-        planNextBGFetch(null);
-      }
-    } else {
-      // Unlike supercgm, keep polling after HTTP errors
-      console.log('[CasioCGM] HTTP error: ' + req.status);
-      sendBgStatus(BG_STATUS.NO_CONN);
-      planNextBGFetch(null);
-    }
-  };
-  req.onerror = function() {
-    if (!finish()) return;
-    console.log('[CasioCGM] Fetch error');
-    sendBgStatus(BG_STATUS.NO_CONN);
-    planNextBGFetch(null);
-  };
-  req.ontimeout = function() {
-    if (!finish()) return;
-    console.log('[CasioCGM] Fetch timeout');
-    sendBgStatus(BG_STATUS.NO_CONN);
-    planNextBGFetch(null);
-  };
-  req.send();
+// Data source: Nightscout (default) or the local web server of the openMinipump
+// iPhone app (Nightscout-compatible /pebble on http://127.0.0.1:17580).
+function isOpenMinipump() {
+  return config.bgSource === 'openminipump' || config.bgSource === 'ipumpmini';
 }
+
+function bgBaseUrl() {
+  if (isOpenMinipump()) return config.ompUrl || configDefaults.ompUrl;
+  return config.nsUrl;
+}
+
+// ── CGM data source: shared library pebble-cgm (js/cgm.js) ─────────────────
+// Nightscout (default) or iPump-mini with wake schedule, fallback and NO_APP.
+var cgm = require('./cgm')({
+  name: 'casiocgm',
+  settings: function() {
+    return {
+      source: isOpenMinipump() ? 'ipumpmini' : 'nightscout',
+      nsUrl: config.nsUrl, nsToken: config.nsToken,
+      ompUrl: config.ompUrl || configDefaults.ompUrl, ompFallback: config.ompFallback,
+      sensorMin: parseInt(config.bgFetchIntervalMin || configDefaults.bgFetchIntervalMin, 10),
+      sync: !(config.syncBgWithInterval === false || config.syncBgWithInterval === '0' || config.syncBgWithInterval === 0),
+      manualMin: parseInt(config.bgManualIntervalMin || configDefaults.bgManualIntervalMin, 10)
+    };
+  },
+  onReading: function(r) {
+    var mmol = parseInt(config.nsUnits) === 1;
+    var msg = {};
+    msg[K.CGM_VALUE]  = mmol ? (r.sgvMgdl / 18.0).toFixed(1) : String(r.sgvMgdl);
+    msg[K.CGM_DELTA]  = formatDelta(r.deltaMgdl, mmol);
+    msg[K.CGM_TREND]  = trendArrow(r.direction);
+    msg[K.CGM_AGE]    = r.ageMin;
+    msg[K.CGM_TS]     = r.tsSec;
+    msg[K.CGM_SGV]    = r.sgvMgdl;
+    msg[K.CGM_SOURCE] = r.fallback ? 1 : 0;   // 1 = Nightscout fallback (watch shows a cloud)
+    sendBgStatus((r.nowSec - r.tsSec > staleMin() * 60) ? BG_STATUS.OLD : BG_STATUS.OK, msg);
+    console.log('[CasioCGM] CGM: ' + msg[K.CGM_VALUE] + ' ' + msg[K.CGM_TREND] + ' age=' + r.ageMin + 'min');
+  },
+  onStatus: function(code) {
+    sendBgStatus(code === 'NO_APP' ? BG_STATUS.NO_APP : code === 'NO_CONN' ? BG_STATUS.NO_CONN : BG_STATUS.NO_DATA);
+  },
+  onWakeSchedule: function(next, interval) {
+    // The watch wakes this JS with REQUEST_BG at the app's next wake (reliable clock).
+    var m = {};
+    m[K.OMP_NEXT] = next;
+    m[K.OMP_INTERVAL] = interval;
+    sendMsg(m, 'wake schedule');
+  }
+});
 
 // ── Fetch Weather (Open-Meteo, no API key) ───────────────────────────────
 function fetchWeather() {
@@ -469,8 +282,7 @@ function fetchWeather() {
 // ── Scheduled fetch ──────────────────────────────────────────────────────
 function scheduleFetch() {
   // CGM: kick off immediately; planNextBGFetch handles subsequent timing
-  if (fetchTimer) { clearTimeout(fetchTimer); fetchTimer = null; }
-  fetchNightscout();
+  cgm.start();
 
   // Weather: refresh every 30 min (independent of CGM sync)
   fetchWeather();
@@ -483,6 +295,9 @@ function applyDefaults(cfg) {
   if (cfg.syncBgWithInterval === undefined) cfg.syncBgWithInterval = configDefaults.syncBgWithInterval;
   if (!cfg.bgFetchIntervalMin)              cfg.bgFetchIntervalMin  = configDefaults.bgFetchIntervalMin;
   if (!cfg.bgManualIntervalMin)             cfg.bgManualIntervalMin = configDefaults.bgManualIntervalMin;
+  if (!cfg.bgSource)                        cfg.bgSource = configDefaults.bgSource;
+  if (!cfg.ompUrl)                          cfg.ompUrl = configDefaults.ompUrl;
+  cfg.ompFallback = cfg.ompFallback === true || cfg.ompFallback === '1' || cfg.ompFallback === 1;
   return cfg;
 }
 
@@ -532,6 +347,7 @@ Pebble.addEventListener('appmessage', function(e) {
   if (e.payload && (e.payload[K.REQUEST_BG] !== undefined ||
                     e.payload['' + K.REQUEST_BG] !== undefined ||
                     e.payload.REQUEST_BG !== undefined)) {
-    fetchNightscout();
+    // Fetch right now (the watch times this to the app's wake window).
+    cgm.fetchNow();
   }
 });

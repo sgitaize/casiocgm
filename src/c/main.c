@@ -1,4 +1,5 @@
 #include <pebble.h>
+#include "cgm.h"   // shared CGM logic (github.com/sgitaize/pebble-cgm)
 
 // ── Keys ─────────────────────────────────────────────────────────────────
 #define KEY_NS_URL          0
@@ -48,14 +49,11 @@
 #define KEY_CGM_TS          60   // Unix ts (seconds) of last CGM reading
 #define KEY_CGM_SGV         61   // raw sgv in mg/dL (int) for range comparison
 #define KEY_REQUEST_BG      62   // watch → phone: request immediate BG fetch
+#define KEY_CGM_SOURCE      63   // 0 = primary source, 1 = Nightscout fallback (cloud icon)
+#define KEY_OMP_NEXT        64   // openMinipump: next wake of the iPhone app (Unix s)
+#define KEY_OMP_INTERVAL    65   // openMinipump: wake interval (s), usually 300
 
 // ── CGM status (mirrors Nightscout-supercgm) ─────────────────────────────
-typedef enum {
-  CGM_STATUS_OK      = 0,  // valid reading
-  CGM_STATUS_NO_DATA = 1,  // server responded, nothing parseable
-  CGM_STATUS_NO_CONN = 2,  // network / phone unreachable
-  CGM_STATUS_OLD     = 3   // JS confirmed reading is stale
-} CgmStatus;
 
 // ── State ─────────────────────────────────────────────────────────────────
 static Window   *s_window;
@@ -103,6 +101,8 @@ static char s_cgm_trend[8]    = "-";
 static int  s_cgm_status      = CGM_STATUS_NO_CONN; // until first message arrives
 static time_t s_cgm_ts        = 0;   // reading timestamp; watch ages locally
 static int  s_cgm_sgv         = 0;   // raw mg/dL for range comparison
+static int  s_cgm_source      = 0;   // 1 = value came from the Nightscout fallback
+static void save_cgm(void);         // keeps the last reading across restarts (see PKEY_CGM)
 static int  s_show_seconds    = 0;   // 1=small seconds next to HH:MM
 static int  s_vibe_on_low     = 0;
 static int  s_vibe_on_high    = 0;
@@ -150,6 +150,7 @@ static bool cgm_is_stale(void) {
 
 static const char *cgm_status_text(void) {
   if (s_cgm_status == CGM_STATUS_NO_CONN)               return "NOCON";
+  if (s_cgm_status == CGM_STATUS_NO_APP)                return "NOAPP";
   if (s_cgm_status == CGM_STATUS_NO_DATA || s_cgm_sgv <= 0) return "NO-BG";
   if (cgm_is_stale())                                   return "OLDBG";
   return NULL;
@@ -619,6 +620,8 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
       snprintf(l1, sizeof(l1), "NO URL");     snprintf(l2, sizeof(l2), "CGM MONITOR");
     } else if (s_cgm_status == CGM_STATUS_NO_CONN) {
       snprintf(l1, sizeof(l1), "NO CONN");    snprintf(l2, sizeof(l2), "CGM MONITOR");
+    } else if (s_cgm_status == CGM_STATUS_NO_APP) {
+      snprintf(l1, sizeof(l1), "OPEN APP");   snprintf(l2, sizeof(l2), "IPUMP-MINI");
     } else if (s_cgm_status == CGM_STATUS_NO_DATA || s_cgm_sgv <= 0) {
       snprintf(l1, sizeof(l1), "NO BG");      snprintf(l2, sizeof(l2), "CGM MONITOR");
     } else if (!cgm_fresh) {
@@ -633,6 +636,10 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     graphics_context_set_text_color(ctx, color_from_int(s_color_cgm_banner));
     graphics_draw_text(ctx, l1, f_tiny, GRect(PX(10), y_cgs - PY(3), PX(96), 16),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+    // Small cloud: the shown value came from the Nightscout fallback, not the local app.
+    if (s_cgm_source == 1 && s_cgm_sgv > 0) {
+      cgm_draw_cloud(ctx, GPoint(PX(100), y_cgs + PY(4)), color_from_int(s_color_cgm_banner));
+    }
     graphics_context_set_text_color(ctx, cgm_fresh ? color_from_int(s_color_cgm_info)
                                                    : color_from_int(s_color_cgm_banner));
     graphics_draw_text(ctx, l2, f_tiny, GRect(PX(10), y_cgs + PY(11), PX(96), 16),
@@ -807,6 +814,8 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   GS(KEY_CGM_VALUE,s_cgm_value); GS(KEY_CGM_DELTA,s_cgm_delta);
   GS(KEY_CGM_TREND,s_cgm_trend);
   GI(KEY_CGM_SGV,s_cgm_sgv);
+  GI(KEY_CGM_SOURCE,s_cgm_source);
+  cgm_wake_handle_inbox(iter, KEY_OMP_NEXT, KEY_OMP_INTERVAL);
   if ((t = dict_find(iter, KEY_CGM_TS))) {
     s_cgm_ts = (time_t)t->value->int32;
   } else if ((t = dict_find(iter, KEY_CGM_AGE))) {
@@ -816,10 +825,13 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   if ((t = dict_find(iter, KEY_CGM_STATUS))) {
     s_cgm_status = (int)t->value->int32;
     // For OLD the value is still valid (just stale) → keep it.
-    if (s_cgm_status == CGM_STATUS_NO_DATA || s_cgm_status == CGM_STATUS_NO_CONN) {
+    if (s_cgm_status == CGM_STATUS_NO_DATA || s_cgm_status == CGM_STATUS_NO_CONN ||
+        s_cgm_status == CGM_STATUS_NO_APP) {
       s_cgm_sgv = 0;
       s_cgm_delta[0] = '\0';
       s_cgm_trend[0] = '\0';
+    } else {
+      save_cgm();
     }
     check_bg_alerts();
   }
@@ -844,6 +856,7 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
 #define PKEY_URL     101
 #define PKEY_TOKEN   102
 #define PKEY_LABELS  103
+#define PKEY_CGM     104   // last reading, shown after a restart until a new one arrives
 #define CFG_VERSION  1
 
 typedef struct {
@@ -956,6 +969,35 @@ static void load_persist_legacy(void) {
 #undef LI
 }
 
+// Last reading (pebble-cgm CgmLast): shown right after a restart of the face instead of
+// NOCON until the phone delivers a new value; staleness follows from its timestamp.
+static void save_cgm(void) {
+  if (s_cgm_sgv <= 0 || s_cgm_ts <= 0) return;
+  if (s_cgm_status != CGM_STATUS_OK && s_cgm_status != CGM_STATUS_OLD) return;
+  CgmLast last;
+  memset(&last, 0, sizeof(last));
+  last.fallback = (uint8_t)s_cgm_source;
+  last.ts = (int32_t)s_cgm_ts;
+  last.sgv = s_cgm_sgv;
+  last.delta = -9999;
+  snprintf(last.value, sizeof(last.value), "%s", s_cgm_value);
+  snprintf(last.delta_text, sizeof(last.delta_text), "%s", s_cgm_delta);
+  snprintf(last.trend, sizeof(last.trend), "%s", s_cgm_trend);
+  cgm_last_save(PKEY_CGM, &last);
+}
+
+static void load_cgm(void) {
+  CgmLast last;
+  if (!cgm_last_load(PKEY_CGM, &last, 6 * 3600)) return;
+  snprintf(s_cgm_value, sizeof(s_cgm_value), "%s", last.value);
+  snprintf(s_cgm_delta, sizeof(s_cgm_delta), "%s", last.delta_text);
+  snprintf(s_cgm_trend, sizeof(s_cgm_trend), "%s", last.trend);
+  s_cgm_ts = (time_t)last.ts;
+  s_cgm_sgv = last.sgv;
+  s_cgm_source = last.fallback;
+  s_cgm_status = CGM_STATUS_OK;   // staleness follows from the timestamp
+}
+
 static void load_persist(void) {
   PersistCfg c;
   if (persist_exists(PKEY_CFG) &&
@@ -1010,6 +1052,8 @@ static void window_unload(Window *w) {
 // ── App lifecycle ─────────────────────────────────────────────────────────
 static void init(void) {
   load_persist();
+  load_cgm();
+  cgm_wake_init(request_bg_fetch);
   battery_state_service_subscribe(battery_state_handler);
   s_batt_pct = (int)battery_state_service_peek().charge_percent;
   s_window = window_create();
@@ -1033,6 +1077,7 @@ static void init(void) {
 }
 
 static void deinit(void) {
+  cgm_wake_deinit();
   tick_timer_service_unsubscribe();
   accel_tap_service_unsubscribe();
   connection_service_unsubscribe();

@@ -235,12 +235,37 @@
     </div>
     <div class="section-body open">
       <div class="field">
+        <label data-en="Data source" data-de="Datenquelle">Data source</label>
+        <select id="bgSource" onchange="updateSourceFields()">
+          <option value="nightscout">Nightscout</option>
+          <option value="ipumpmini" data-en="iPump-mini (local, this iPhone)" data-de="iPump-mini (lokal, dieses iPhone)">iPump-mini (local, this iPhone)</option>
+        </select>
+        <p class="hint" data-en="Nightscout (default) or iPump-mini: reads a MiniMed 780G directly on the iPhone, no internet needed (github.com/sgitaize/iPump-mini)." data-de="Nightscout (Standard) oder iPump-mini: liest eine MiniMed 780G direkt auf dem iPhone aus, ohne Internet (github.com/sgitaize/iPump-mini).">Nightscout (default) or iPump-mini.</p>
+      </div>
+      <div id="ompFields" style="display:none">
+      <div class="field">
+        <label data-en="iPump-mini server" data-de="iPump-mini-Server">iPump-mini server</label>
+        <input type="url" id="ompUrl" placeholder="http://127.0.0.1:17580">
+        <p class="hint" data-en="Default http://127.0.0.1:17580 (the app on the same iPhone). In the background the app is reachable for about 30 s after each pump update (every 5 min); the watch fetches exactly then." data-de="Standard http://127.0.0.1:17580 (die App auf demselben iPhone). Im Hintergrund ist die App nach jedem Pumpen-Update etwa 30 s erreichbar (alle 5 min); die Uhr fragt genau dann ab.">Default http://127.0.0.1:17580.</p>
+      </div>
+      <div class="field">
+        <label data-en="Nightscout as fallback" data-de="Nightscout als Fallback">Nightscout as fallback</label>
+        <select id="ompFallback" onchange="updateSourceFields()">
+          <option value="0" data-en="Off" data-de="Aus">Off</option>
+          <option value="1" data-en="On" data-de="An">On</option>
+        </select>
+        <p class="hint" data-en="Only used when the app could not be reached for more than one pump update, at most every 5 minutes (internet costs battery). If neither delivers a value for 15 minutes, the watch shows OPEN APP." data-de="Nur wenn die App länger als ein Pumpen-Update nicht erreichbar war, höchstens alle 5 Minuten (Internet kostet Akku). Liefern beide 15 Minuten lang keinen Wert, zeigt die Uhr OPEN APP.">Only used when the app is unreachable.</p>
+      </div>
+      </div>
+      <div id="nsFields">
+      <div class="field">
         <label data-en="Nightscout URL" data-de="Nightscout-URL">Nightscout URL</label>
         <input type="url" id="nsUrl" placeholder="https://your-site.ns.10be.de">
       </div>
       <div class="field">
         <label data-en="API Token (optional)" data-de="API-Token (optional)">API Token (optional)</label>
         <input type="text" id="nsToken" placeholder="your-token">
+      </div>
       </div>
       <div class="row2">
         <div class="field">
@@ -919,6 +944,13 @@ function closeWith(payload) {
   document.location = (urlParam('return_to') || 'pebblejs://close#') + payload;
 }
 
+function updateSourceFields() {
+  var omp = document.getElementById('bgSource').value === 'ipumpmini';
+  var fallback = document.getElementById('ompFallback').value === '1';
+  document.getElementById('nsFields').style.display = (!omp || fallback) ? '' : 'none';
+  document.getElementById('ompFields').style.display = omp ? '' : 'none';
+}
+
 function loadConfig() {
   var raw = urlParam('config');
   if (!raw) return;
@@ -929,6 +961,10 @@ function loadConfig() {
       var el = document.getElementById(id);
       if (el && v !== undefined && v !== null) el.value = v;
     }
+    setVal('bgSource',      (cfg.bgSource === 'openminipump' || cfg.bgSource === 'ipumpmini') ? 'ipumpmini' : 'nightscout');
+    setVal('ompUrl',        cfg.ompUrl || 'http://127.0.0.1:17580');
+    setVal('ompFallback',   cfg.ompFallback ? '1' : '0');
+    updateSourceFields();
     setVal('nsUrl',         cfg.nsUrl);
     setVal('nsToken',       cfg.nsToken);
     setVal('nsUnits',       cfg.nsUnits);
@@ -974,6 +1010,9 @@ function loadConfig() {
 // ── Save ───────────────────────────────────────────────────────────────────
 function save() {
   var cfg = {
+    bgSource:      document.getElementById('bgSource').value,
+    ompUrl:        document.getElementById('ompUrl').value.trim() || 'http://127.0.0.1:17580',
+    ompFallback:   document.getElementById('ompFallback').value === '1',
     nsUrl:         document.getElementById('nsUrl').value.trim(),
     nsToken:       document.getElementById('nsToken').value.trim(),
     nsUnits:       document.getElementById('nsUnits').value,
