@@ -52,7 +52,7 @@ var K = {
   CGM_VALUE:          50, CGM_DELTA:      51, CGM_TREND:       52,
   CGM_AGE:         53, STEPS:          54, HR:              55,
   WEATHER_TEMP:    56, WEATHER_ICON:   57, BATT_PCT:        58,
-  CGM_STATUS:      59, CGM_TS:         60, CGM_SGV:         61,
+  CGM_STATUS:      59, CGM_TS:         60, CGM_SGV:         61, CGM_SOURCE: 63, OMP_NEXT: 64, OMP_INTERVAL: 65,
   REQUEST_BG:      62
 };
 
@@ -373,6 +373,12 @@ function learnOmpSync(data, serverNow) {
     window: Math.max(10, parseInt(sync.windowSec, 10) || 25) * 1000
   };
   try { localStorage.setItem(OMP_SYNC_KEY, JSON.stringify(ompSync)); } catch (e) {}
+  // The watch keeps reliable time while this JS may be throttled in the background:
+  // it wakes us with REQUEST_BG at the next wake (see omp_wake_timer in main.c).
+  var m = {};
+  m[K.OMP_NEXT] = Math.round(ompSync.next / 1000);
+  m[K.OMP_INTERVAL] = Math.round(ompSync.interval / 1000);
+  sendMsg(m, 'wake schedule');
   return true;
 }
 
@@ -495,6 +501,7 @@ function fetchNightscout(fallback) {
         msg[K.CGM_AGE]   = ageMin;
         msg[K.CGM_TS]    = bgTs;
         msg[K.CGM_SGV]   = sgv;
+        msg[K.CGM_SOURCE] = fallback ? 1 : 0;   // 1 = Nightscout fallback (watch shows a cloud)
         sendBgStatus(status, msg);
         console.log('[CasioCGM] CGM: ' + valStr + ' ' + trend +
                     ' age=' + ageMin + 'min ts=' + bgTs + ' status=' + status);
@@ -638,6 +645,8 @@ Pebble.addEventListener('appmessage', function(e) {
   if (e.payload && (e.payload[K.REQUEST_BG] !== undefined ||
                     e.payload['' + K.REQUEST_BG] !== undefined ||
                     e.payload.REQUEST_BG !== undefined)) {
+    // Fetch right now (the watch times this to the app's wake window); drop a pending timer.
+    if (fetchTimer) { clearTimeout(fetchTimer); fetchTimer = null; }
     fetchNightscout();
   }
 });

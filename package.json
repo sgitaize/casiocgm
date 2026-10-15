@@ -1,7 +1,7 @@
 {
   "name": "casiocgm",
   "author": "simon",
-  "version": "2.4.3",
+  "version": "2.4.5",
   "keywords": [
     "pebble-app"
   ],
@@ -108,7 +108,10 @@
       "CGM_STATUS",
       "CGM_TS",
       "CGM_SGV",
-      "REQUEST_BG"
+      "REQUEST_BG",
+      "CGM_SOURCE",
+      "OMP_NEXT",
+      "OMP_INTERVAL"
     ]
   }
 }

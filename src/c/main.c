@@ -48,6 +48,9 @@
 #define KEY_CGM_TS          60   // Unix ts (seconds) of last CGM reading
 #define KEY_CGM_SGV         61   // raw sgv in mg/dL (int) for range comparison
 #define KEY_REQUEST_BG      62   // watch → phone: request immediate BG fetch
+#define KEY_CGM_SOURCE      63   // 0 = primary source, 1 = Nightscout fallback (cloud icon)
+#define KEY_OMP_NEXT        64   // openMinipump: next wake of the iPhone app (Unix s)
+#define KEY_OMP_INTERVAL    65   // openMinipump: wake interval (s), usually 300
 
 // ── CGM status (mirrors Nightscout-supercgm) ─────────────────────────────
 typedef enum {
@@ -104,6 +107,7 @@ static char s_cgm_trend[8]    = "-";
 static int  s_cgm_status      = CGM_STATUS_NO_CONN; // until first message arrives
 static time_t s_cgm_ts        = 0;   // reading timestamp; watch ages locally
 static int  s_cgm_sgv         = 0;   // raw mg/dL for range comparison
+static int  s_cgm_source      = 0;   // 1 = value came from the Nightscout fallback
 static void save_cgm(void);         // keeps the last reading across restarts (see PKEY_CGM)
 static int  s_show_seconds    = 0;   // 1=small seconds next to HH:MM
 static int  s_vibe_on_low     = 0;
@@ -307,6 +311,15 @@ static void battery_state_handler(BatteryChargeState state) {
 //  203..228  yellow banner text (editable, default "E-PAPER DISPLAY")
 
 // Yellow "heart rate" heart of the original, reused as CGM trend icon
+// Tiny cloud (about 11 x 7 px): three circles on a flat base.
+static void draw_cloud(GContext *ctx, GPoint c, GColor color) {
+  graphics_context_set_fill_color(ctx, color);
+  graphics_fill_circle(ctx, GPoint(c.x - 3, c.y + 1), 2);
+  graphics_fill_circle(ctx, GPoint(c.x, c.y - 1), 3);
+  graphics_fill_circle(ctx, GPoint(c.x + 3, c.y + 1), 2);
+  graphics_fill_rect(ctx, GRect(c.x - 4, c.y + 1, 9, 3), 1, GCornersAll);
+}
+
 static void draw_heart(GContext *ctx, GPoint c, int r, GColor col) {
   graphics_context_set_fill_color(ctx, col);
   graphics_fill_circle(ctx, GPoint(c.x - r, c.y - r / 2), r);
@@ -638,6 +651,10 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     graphics_context_set_text_color(ctx, color_from_int(s_color_cgm_banner));
     graphics_draw_text(ctx, l1, f_tiny, GRect(PX(10), y_cgs - PY(3), PX(96), 16),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+    // Small cloud: the shown value came from the Nightscout fallback, not the local app.
+    if (s_cgm_source == 1 && s_cgm_sgv > 0) {
+      draw_cloud(ctx, GPoint(PX(100), y_cgs + PY(4)), color_from_int(s_color_cgm_banner));
+    }
     graphics_context_set_text_color(ctx, cgm_fresh ? color_from_int(s_color_cgm_info)
                                                    : color_from_int(s_color_cgm_banner));
     graphics_draw_text(ctx, l2, f_tiny, GRect(PX(10), y_cgs + PY(11), PX(96), 16),
@@ -692,6 +709,43 @@ static void request_bg_fetch(void) {
     dict_write_uint8(iter, KEY_REQUEST_BG, 1);
     app_message_outbox_send();
   }
+}
+
+// ── openMinipump wake timer ──────────────────────────────────────────────
+// The iPhone app answers only for ~25 s after each pump update. PebbleKit JS timers are
+// throttled while the Pebble app is in the background, so the watch (reliable clock)
+// asks the phone exactly at the announced wake: at +3 s, +11 s and +19 s, then moves on
+// to the next expected wake by itself until the phone sends a new schedule.
+static time_t s_omp_next = 0;
+static int s_omp_interval = 0;
+static int s_omp_tries = 0;
+static AppTimer *s_omp_timer = NULL;
+
+static void omp_schedule(void);
+
+static void omp_wake_timer(void *data) {
+  s_omp_timer = NULL;
+  APP_LOG(APP_LOG_LEVEL_INFO, "omp wake try %d", s_omp_tries);
+  request_bg_fetch();
+  if (++s_omp_tries < 3) {
+    s_omp_timer = app_timer_register(8000, omp_wake_timer, NULL);
+    return;
+  }
+  s_omp_tries = 0;
+  s_omp_next += s_omp_interval;
+  omp_schedule();
+}
+
+static void omp_schedule(void) {
+  if (s_omp_timer) { app_timer_cancel(s_omp_timer); s_omp_timer = NULL; }
+  if (s_omp_next <= 0 || s_omp_interval < 60) return;
+  time_t now = time(NULL);
+  while (s_omp_next + 30 < now) s_omp_next += s_omp_interval;
+  int ms = (int)(s_omp_next - now + 3) * 1000;
+  if (ms < 500) ms = 500;
+  s_omp_tries = 0;
+  APP_LOG(APP_LOG_LEVEL_INFO, "omp next in %d ms", ms);
+  s_omp_timer = app_timer_register((uint32_t)ms, omp_wake_timer, NULL);
 }
 
 // Vibrate on threshold breach, 10-minute cooldown per direction (supercgm)
@@ -812,6 +866,12 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   GS(KEY_CGM_VALUE,s_cgm_value); GS(KEY_CGM_DELTA,s_cgm_delta);
   GS(KEY_CGM_TREND,s_cgm_trend);
   GI(KEY_CGM_SGV,s_cgm_sgv);
+  GI(KEY_CGM_SOURCE,s_cgm_source);
+  if ((t = dict_find(iter, KEY_OMP_NEXT))) {
+    s_omp_next = (time_t)t->value->int32;
+    if ((t = dict_find(iter, KEY_OMP_INTERVAL))) s_omp_interval = (int)t->value->int32;
+    omp_schedule();
+  }
   if ((t = dict_find(iter, KEY_CGM_TS))) {
     s_cgm_ts = (time_t)t->value->int32;
   } else if ((t = dict_find(iter, KEY_CGM_AGE))) {
