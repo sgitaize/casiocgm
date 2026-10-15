@@ -335,8 +335,7 @@ Pebble.addEventListener('webviewclosed', function(e) {
 
 Pebble.addEventListener('showConfiguration', function() {
   // Config travels in the URL fragment: the token never reaches the server
-  // Test build: config page with the data source selector (docs/config-beta)
-  var baseUrl = 'https://sgitaize.github.io/casiocgm/config-beta/';
+  var baseUrl = 'https://sgitaize.github.io/casiocgm/config/';
   var stored  = localStorage.getItem('casiocgm_config') || '{}';
   var url     = baseUrl + '#config=' + encodeURIComponent(stored);
   Pebble.openURL(url);
