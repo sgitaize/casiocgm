@@ -355,8 +355,21 @@
           <option value="2" data-en="Heart Rate"          data-de="Herzrate">Heart Rate</option>
           <option value="3" data-en="Battery %"           data-de="Akku %">Battery %</option>
           <option value="4" data-en="Weather Temp"        data-de="Temperatur">Weather Temp</option>
-          <option value="5" data-en="None (keep date)"    data-de="Keine (Datum bleibt)">None (keep date)</option>
+          <option value="5" data-en="None (keep complication)" data-de="Keine (Komplikation bleibt)">None (keep complication)</option>
         </select>
+      </div>
+      <div class="field">
+        <label data-en="Shake – date area" data-de="Schütteln – Datumsfeld">Shake – date area</label>
+        <select id="shakeDate">
+          <option value="5" data-en="Date (default)"   data-de="Datum (Standard)">Date (default)</option>
+          <option value="0" data-en="CGM Delta"        data-de="CGM Delta">CGM Delta</option>
+          <option value="6" data-en="CGM Value"        data-de="CGM-Wert">CGM Value</option>
+          <option value="1" data-en="Step Count"       data-de="Schritte">Step Count</option>
+          <option value="2" data-en="Heart Rate"       data-de="Herzrate">Heart Rate</option>
+          <option value="3" data-en="Battery %"        data-de="Akku %">Battery %</option>
+          <option value="4" data-en="Weather Temp"     data-de="Temperatur">Weather Temp</option>
+        </select>
+        <p class="hint" data-en="Example: 2nd row &quot;None&quot; keeps the CGM value in the complication, the date area shows the delta." data-de="Beispiel: 2. Zeile „Keine“ lässt den CGM-Wert in der Komplikation, das Datumsfeld zeigt das Delta.">Example: 2nd row "None" keeps the CGM value, the date area shows the delta.</p>
       </div>
       <div class="field">
         <label data-en="Ghost segments" data-de="Geister-Segmente">Ghost segments</label>
@@ -983,6 +996,7 @@ function loadConfig() {
     setVal('dateFormat',    cfg.dateFormat);
     setVal('firstWeekday',  cfg.firstWeekday);
     setVal('shake2nd',      cfg.shake2nd);
+    setVal('shakeDate',     cfg.shakeDate !== undefined ? String(cfg.shakeDate) : '5');
     setVal('ghostEnabled',     cfg.ghostEnabled     !== undefined ? String(cfg.ghostEnabled)     : '1');
     setVal('ghostCompEnabled', cfg.ghostCompEnabled !== undefined ? String(cfg.ghostCompEnabled) : '1');
     setVal('cgmBoxEnabled',    cfg.cgmBoxEnabled    !== undefined ? String(cfg.cgmBoxEnabled)    : '1');
@@ -1030,6 +1044,7 @@ function save() {
     dateFormat:    document.getElementById('dateFormat').value,
     firstWeekday:  document.getElementById('firstWeekday').value,
     shake2nd:      document.getElementById('shake2nd').value,
+    shakeDate:     document.getElementById('shakeDate').value,
     ghostEnabled:  parseInt(document.getElementById('ghostEnabled').value),
     ghostCompEnabled: parseInt(document.getElementById('ghostCompEnabled').value),
     cgmBoxEnabled: parseInt(document.getElementById('cgmBoxEnabled').value),

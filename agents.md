@@ -70,7 +70,9 @@ Must be identical in both files.
 | KEY_LABEL_BOTTOM    | 15  | config→watch  | string | Bottom banner text             |
 | KEY_FIRST_WEEKDAY   | 16  | config→watch  | int    | 0=Sun, 1=Mon                  |
 | KEY_DATE_FORMAT     | 17  | config→watch  | int    | 0=DD-MM, 1=MM-DD              |
+| KEY_SHAKE_2ND       | 18  | config→watch  | int    | Comp box on shake: 0=CGM delta,1=steps,2=HR,3=battery,4=weather,5=none (keep complication) |
 | KEY_SHOW_SECONDS    | 20  | config→watch  | int    | 1=small seconds next to HH:MM (default 0) |
+| KEY_SHAKE_DATE      | 40  | config→watch  | int    | Date area on shake: same numbering, 5=date (default), 6=CGM value; persisted under PKEY 105 |
 | KEY_CGM_VALUE       | 50  | JS→watch      | string | Glucose display string (mg/dL int or mmol "5.6") |
 | KEY_CGM_DELTA       | 51  | JS→watch      | string | Delta string e.g. "+3"        |
 | KEY_CGM_TREND       | 52  | JS→watch      | string | 1-char trend code (U u r - f d D), drawn graphically in C |

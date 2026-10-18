@@ -20,7 +20,7 @@
 #define KEY_LABEL_BOTTOM    15
 #define KEY_FIRST_WEEKDAY   16
 #define KEY_DATE_FORMAT     17
-#define KEY_SHAKE_2ND       18   // 0=CGM delta,1=steps,2=HR,3=battery,4=weather,5=date
+#define KEY_SHAKE_2ND       18   // 0=CGM delta,1=steps,2=HR,3=battery,4=weather,5=none (keep complication)
 #define KEY_WDAY_LANG       19   // 0=EN, 1=DE
 #define KEY_SHOW_SECONDS    20   // 1=small seconds next to HH:MM, 0=off (default)
 #define KEY_COLOR_GHOST     21   // ghost segment color
@@ -36,6 +36,7 @@
 #define KEY_GHOST_COMP_ENABLED 37   // 1=ghost 8s in comp box (default), 0=hide (issue #4)
 #define KEY_VIBE_ON_LOW        38   // 1=vibrate on low BG (3 pulses), 10 min cooldown
 #define KEY_VIBE_ON_HIGH       39   // 1=vibrate on high BG (2 pulses), 10 min cooldown
+#define KEY_SHAKE_DATE         40   // date area on shake: shake_2nd numbering, 5=date, 6=CGM value
 #define KEY_CGM_VALUE          50
 #define KEY_CGM_DELTA       51
 #define KEY_CGM_TREND       52
@@ -82,6 +83,7 @@ static char s_label_bot[32]   = "E-PAPER DISPLAY";
 static int  s_first_weekday   = 0;
 static int  s_date_format     = 0;
 static int  s_shake_2nd       = 0;  // secondary slot shown on shake
+static int  s_shake_date      = 5;  // date area on shake (5 = keep the date)
 static int  s_wday_lang       = 0;  // 0=EN, 1=DE
 static int  s_color_ghost      = 0xAAAAFF;  // ghost segment color
 static int  s_color_label_top  = 0xFFFFFF;  // top banner label color
@@ -184,12 +186,12 @@ static void complication_str(int slot, char *buf, size_t len) {
   }
 }
 
-// Secondary-slot string shown while shaking.
-// Slot numbering matches the config-page shake2nd select:
-//   0 = CGM delta, 1 = steps, 2 = HR, 3 = battery %, 4 = weather temp
+// Secondary-slot string shown while shaking (comp box and date area).
+// Slot numbering matches the config-page shake2nd / shakeDate selects:
+//   0 = CGM delta, 1 = steps, 2 = HR, 3 = battery %, 4 = weather temp, 6 = CGM value
 //   (5 = "None" – caller keeps primary, this is not invoked for slot 5)
-static void shake_str(char *buf, size_t len) {
-  switch (s_shake_2nd) {
+static void shake_str(int slot, char *buf, size_t len) {
+  switch (slot) {
     case 0:
       if (s_cgm_delta[0]) snprintf(buf, len, "%s", s_cgm_delta);
       else                 snprintf(buf, len, "----");
@@ -198,6 +200,7 @@ static void shake_str(char *buf, size_t len) {
     case 2: snprintf(buf, len, s_hr > 0 ? "%d" : "----", s_hr); break;
     case 3: snprintf(buf, len, "%d", s_batt_pct); break;
     case 4: snprintf(buf, len, "%d", s_weather_temp); break;
+    case 6: complication_str(0, buf, len); break;
     default: snprintf(buf, len, "-----"); break;
   }
 }
@@ -461,9 +464,19 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   unsigned dd = (unsigned)tnow->tm_mday, dm = (unsigned)(tnow->tm_mon + 1);
   if (s_date_format == 0) snprintf(date_str, sizeof(date_str), "%02u-%02u", dd, dm);
   else                    snprintf(date_str, sizeof(date_str), "%02u-%02u", dm, dd);
-  lcd_text(ctx, "88-88", date_str, f_date,
-           GRect(x_l, y_dr + (dr_h - 16) / 2, date_w, 20),
-           col_ghost, col_fg, GTextAlignmentLeft);
+  if (s_shake_active && s_shake_date != 5) {
+    // e.g. CGM stays in the comp box, the delta shows here (shakeDate)
+    char sstr[16];
+    shake_str(s_shake_date, sstr, sizeof(sstr));
+    bool cgm_val = s_shake_date == 6 && cgm_fresh;
+    lcd_text(ctx, "88888", sstr, f_date,
+             GRect(x_l, y_dr + (dr_h - 16) / 2, date_w, 20),
+             col_ghost, cgm_val ? col_cgm : col_fg, GTextAlignmentRight);
+  } else {
+    lcd_text(ctx, "88-88", date_str, f_date,
+             GRect(x_l, y_dr + (dr_h - 16) / 2, date_w, 20),
+             col_ghost, col_fg, GTextAlignmentLeft);
+  }
 
   // ── 6. Comp box (rounded, inside the panel) ───────────────────────────
   // shake_2nd uses its own slot numbering (0=CGM delta,3=battery,4=weather);
@@ -473,7 +486,7 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
     bool cgm_slot, cgm_valid;
     GColor creal;
     if (s_shake_active && s_shake_2nd != 5) {
-      shake_str(cstr, sizeof(cstr));
+      shake_str(s_shake_2nd, cstr, sizeof(cstr));
       cgm_slot = false; cgm_valid = false; creal = col_fg;
     } else {
       complication_str(s_complication, cstr, sizeof(cstr));
@@ -689,11 +702,7 @@ static void accel_tap_handler(AccelAxisType axis, int32_t direction) {
 // Phone/BT lost → show NOCON immediately instead of waiting for staleness.
 // On reconnect, ask the phone for a fresh BG right away.
 static void request_bg_fetch(void) {
-  DictionaryIterator *iter;
-  if (app_message_outbox_begin(&iter) == APP_MSG_OK) {
-    dict_write_uint8(iter, KEY_REQUEST_BG, 1);
-    app_message_outbox_send();
-  }
+  cgm_send_request(KEY_REQUEST_BG);   // retries while the outbox is busy
 }
 
 // Vibrate on threshold breach, 10-minute cooldown per direction (supercgm)
@@ -794,6 +803,7 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   GS(KEY_LABEL_BOTTOM,s_label_bot);
   GI(KEY_FIRST_WEEKDAY,s_first_weekday); GI(KEY_DATE_FORMAT,s_date_format);
   GI(KEY_SHAKE_2ND,s_shake_2nd);
+  GI(KEY_SHAKE_DATE,s_shake_date);
   GI(KEY_WDAY_LANG,s_wday_lang);
   GI(KEY_COLOR_GHOST,s_color_ghost); GI(KEY_COLOR_LABEL_TOP,s_color_label_top);
   GI(KEY_GHOST_ENABLED,s_ghost_enabled);
@@ -857,6 +867,7 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
 #define PKEY_TOKEN   102
 #define PKEY_LABELS  103
 #define PKEY_CGM     104   // last reading, shown after a restart until a new one arrives
+#define PKEY_SHAKE_DATE 105  // own key, so PersistCfg keeps its size (no settings reset)
 #define CFG_VERSION  1
 
 typedef struct {
@@ -936,6 +947,8 @@ static void save_persist(void) {
   strncpy(l.tr, s_label_tr, sizeof(l.tr) - 1);
   strncpy(l.bot, s_label_bot, sizeof(l.bot) - 1);
   persist_data_if_changed(PKEY_LABELS, &l, sizeof(l));
+  if (!persist_exists(PKEY_SHAKE_DATE) || persist_read_int(PKEY_SHAKE_DATE) != s_shake_date)
+    persist_write_int(PKEY_SHAKE_DATE, s_shake_date);
 }
 
 // v1.x stored every setting under its AppMessage key
@@ -1023,6 +1036,7 @@ static void load_persist(void) {
   } else {
     load_persist_legacy();
   }
+  if (persist_exists(PKEY_SHAKE_DATE)) s_shake_date = persist_read_int(PKEY_SHAKE_DATE);
 }
 
 // ── Window ────────────────────────────────────────────────────────────────

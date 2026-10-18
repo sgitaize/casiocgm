@@ -48,6 +48,7 @@ var K = {
   GHOST_COMP_ENABLED: 37,
   VIBE_ON_LOW:        38,
   VIBE_ON_HIGH:       39,
+  SHAKE_DATE:         40,
   CGM_VALUE:          50, CGM_DELTA:      51, CGM_TREND:       52,
   CGM_AGE:         53, STEPS:          54, HR:              55,
   WEATHER_TEMP:    56, WEATHER_ICON:   57, BATT_PCT:        58,
@@ -78,35 +79,14 @@ function colorToInt(hex) {
   return parseInt(hex, 16);
 }
 
-// ── AppMessage queue: one message in flight, retry on NACK ────────────────
+// ── AppMessage queue (pebble-cgm): one message in flight, ack timeout, retries ──
 // Config and BG messages are often sent back to back; without a queue the
-// second one fails with APP_MSG_BUSY.
-var outbox = [];
-var sending = false;
+// second one fails with APP_MSG_BUSY. Messages with the same key replace each
+// other while waiting (only the newest value / wake schedule matters).
+var outbox = require('./cgm').outbox('CasioCGM');
 
-function pump() {
-  if (sending || outbox.length === 0) return;
-  sending = true;
-  var item = outbox[0];
-  Pebble.sendAppMessage(item.msg, function() {
-    outbox.shift();
-    sending = false;
-    if (item.ok) item.ok();
-    pump();
-  }, function() {
-    item.tries++;
-    if (item.tries >= 3) {
-      outbox.shift();
-      console.log('[CasioCGM] ' + item.label + ' send failed');
-    }
-    sending = false;
-    setTimeout(pump, 1000);
-  });
-}
-
-function sendMsg(msg, label, ok) {
-  outbox.push({ msg: msg, label: label, ok: ok, tries: 0 });
-  pump();
+function sendMsg(msg, label, ok, key) {
+  outbox.send(msg, label, { ok: ok, key: key });
 }
 
 // supercgm: a reading is stale after 2x the sensor interval (the watch
@@ -150,6 +130,8 @@ function sendConfig() {
   msg[K.FIRST_WEEKDAY]   = parseInt(config.firstWeekday) || 0;
   msg[K.DATE_FORMAT]     = parseInt(config.dateFormat)   || 0;
   msg[K.SHAKE_2ND]       = parseInt(config.shake2nd)     || 0;
+  var shakeDate = parseInt(config.shakeDate, 10);
+  msg[K.SHAKE_DATE]      = isNaN(shakeDate) ? 5 : shakeDate;   // 5 = date stays
   msg[K.WDAY_LANG]       = parseInt(config.wdayLang)     || 0;
   msg[K.SHOW_SECONDS]    = parseInt(config.showSeconds)  || 0;
   msg[K.COLOR_GHOST]       = colorToInt(config.colorGhost     || '#AAAAFF');
@@ -166,14 +148,14 @@ function sendConfig() {
   msg[K.VIBE_ON_LOW]      = config.vibeOnLow  ? 1 : 0;
   msg[K.VIBE_ON_HIGH]     = config.vibeOnHigh ? 1 : 0;
 
-  sendMsg(msg, 'Config', function() { console.log('[CasioCGM] Config sent'); });
+  sendMsg(msg, 'Config', function() { console.log('[CasioCGM] Config sent'); }, 'config');
 }
 
 // last value on OLD, clears it on NO_DATA / NO_CONN.
 function sendBgStatus(status, extra) {
   var msg = extra || {};
   msg[K.CGM_STATUS] = status;
-  sendMsg(msg, 'BG status ' + status);
+  sendMsg(msg, 'BG status ' + status, null, 'bg');
 }
 
 // supercgm parsers: auto-detect whether Nightscout sends mmol (float < 40)
@@ -235,7 +217,7 @@ var cgm = require('./cgm')({
     var m = {};
     m[K.OMP_NEXT] = next;
     m[K.OMP_INTERVAL] = interval;
-    sendMsg(m, 'wake schedule');
+    sendMsg(m, 'wake schedule', null, 'wake');
   }
 });
 
@@ -269,7 +251,7 @@ function fetchWeather() {
           var msg = {};
           msg[K.WEATHER_TEMP] = temp;
           msg[K.WEATHER_ICON] = icon;
-          sendMsg(msg, 'Weather');
+          sendMsg(msg, 'Weather', null, 'weather');
         } catch(ex) {}
       }
     };
