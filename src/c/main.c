@@ -466,14 +466,21 @@ static void canvas_update_proc(Layer *layer, GContext *ctx) {
   else                    snprintf(date_str, sizeof(date_str), "%02u-%02u", dm, dd);
   if (s_shake_active && s_shake_date != 5) {
     // e.g. CGM stays in the comp box, the delta shows here (shakeDate)
+    // Same 5-cell grid and ghost as the date: the value is right-aligned to the
+    // measured width of the ghost cells (all DSEG cells are equally wide).
     char sstr[16];
     shake_str(s_shake_date, sstr, sizeof(sstr));
+    GRect dr = GRect(x_l, y_dr + (dr_h - 16) / 2, date_w, 20);
+    GSize gs = graphics_text_layout_get_content_size("88888", f_date, dr,
+                                                     GTextOverflowModeFill, GTextAlignmentLeft);
+    dr.size.w = gs.w;
     bool cgm_val = s_shake_date == 6 && cgm_fresh;
-    lcd_text(ctx, "88888", sstr, f_date,
-             GRect(x_l, y_dr + (dr_h - 16) / 2, date_w, 20),
+    lcd_text(ctx, "88888", sstr, f_date, dr,
              col_ghost, cgm_val ? col_cgm : col_fg, GTextAlignmentRight);
   } else {
-    lcd_text(ctx, "88-88", date_str, f_date,
+    // Full ghost cells also behind the dash: identical to the shake state, so no
+    // lone ghost '-' that could read as a minus in front of a delta.
+    lcd_text(ctx, "88888", date_str, f_date,
              GRect(x_l, y_dr + (dr_h - 16) / 2, date_w, 20),
              col_ghost, col_fg, GTextAlignmentLeft);
   }
