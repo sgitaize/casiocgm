@@ -1,10 +1,20 @@
 # CasioCGM
 
-A retro Casio-style LCD watchface for the **Pebble Time 2**, with real-time **Nightscout CGM** blood glucose integration.
+**English** · [Deutsch](README.de.md)
+
+A retro Casio-style LCD watchface for the **Pebble Time 2**, with live **CGM** blood glucose from Nightscout or iPump-mini.
 
 > As a diabetic you want a cool watchface too — not just a plain number on a screen. That is why CasioCGM exists.
 
-Available in the [Pebble Appstore](https://apps.rePebble.com/58fcfcc22c37487f815520db).
+**Status:** in the Pebble Appstore · data from Nightscout or [iPump-mini](https://github.com/sgitaize/iPump-mini) · actively maintained
+
+## Get it
+
+| | |
+|---|---|
+| **Pebble Appstore** | [CasioCGM](https://apps.rePebble.com/58fcfcc22c37487f815520db) – install from the Pebble app on your phone |
+| **Releases** | [`.pbw` on GitHub](https://github.com/sgitaize/casiocgm/releases/latest) for side-loading |
+| **Settings** | gear icon in the Pebble app → [settings page](https://sgitaize.github.io/casiocgm/config/) (English / German) |
 
 ![CasioCGM Screenshot](resources/screenshots/casiocgm-v2.2.1.png)
 
@@ -43,11 +53,12 @@ Six selectable slots — shown permanently; shake cycles to the secondary slot:
 - **Weekday row** — 7 squares (today filled) with S M T W T F S (or German S M D M D F S) below
 
 ### CGM integration
-- Fetches **Nightscout `/pebble`** endpoint every 5 minutes via the Pebble phone app
-- Displays: value, trend direction arrow (graphic, 9 variants), delta, age
-- Stale detection — marks data as stale if older than the configured threshold
-- CGM value color follows range: in-range / high / low with separate configurable colors
-- Shows CGM status below LCD: **CGM Active** / **CGM Offline** / **No URL**
+- **Two data sources:** Nightscout (`/pebble`, default) or [iPump-mini](https://github.com/sgitaize/iPump-mini) – the iPhone app that reads a MiniMed 780G directly, no internet needed. With iPump-mini, Nightscout can act as a fallback (marked with a small cloud).
+- **Battery-friendly sync:** fetches right after each new sensor reading instead of polling; with iPump-mini it follows the app's wake schedule, and the watch nudges the phone if it stays quiet.
+- Displays value, graphic trend arrow (9 variants), delta and age; the last value survives a restart of the watchface.
+- Stale detection, colours by range (in range / high / low), optional vibration on low or high.
+- Status below the LCD: **CGM Active** / **Old BG** / **No Conn** / **OPEN APP** (iPump-mini not running) / **No URL**.
+- Shared CGM logic: [pebble-cgm](https://github.com/sgitaize/pebble-cgm), also used by [Nightscout-supercgm](https://github.com/sgitaize/Nightscout-supercgm) and [91 Dub CGM](https://github.com/sgitaize/dubv4cgm).
 
 ### Labels & banners
 - **Top banner** (above red band) — two free-text labels (default: `CGM` left, `TIME 2` right) with configurable color
@@ -74,16 +85,38 @@ Built exclusively for the **Pebble Time 2** (emery, 200×228 px) — DSEG14 Bold
 
 ---
 
----
+## Architecture
+
+<p align="center"><img src="docs/architecture.png" alt="Architecture: the watchface and the C part of pebble-cgm on the watch talk via AppMessage to PebbleKit JS on the phone, which fetches from Nightscout or iPump-mini and Open-Meteo; settings come from a page on GitHub Pages" width="100%"></p>
+
+<sub>Source: <a href="docs/architecture.mmd">docs/architecture.mmd</a> (Mermaid)</sub>
+
+**How it works**
+- **The watch draws, the phone fetches.** The C code on the watch renders the face and keeps the last value; the JavaScript in the Pebble app (PebbleKit JS) talks to the internet and sends compact AppMessages.
+- **pebble-cgm** handles everything CGM on both sides: choosing the source, timing fetches after each new reading, the iPump-mini wake schedule, fallback to Nightscout, a send queue with acknowledgements, and a watchdog on the watch.
+- **Settings** are a static page on GitHub Pages; the configuration travels in the URL fragment, so your Nightscout token never reaches a server.
+- Steps and heart rate come straight from the watch (HealthService); weather from Open-Meteo.
+
+| Part | Where | What it does |
+|---|---|---|
+| Watchface | `src/c/main.c` | drawing, layout, complications, shake, persistence |
+| CGM (watch) | `src/c/cgm.c` | last value, status, watchdog, wake timer (from pebble-cgm) |
+| Phone script | `src/pkjs/index.js` | settings, weather, battery, messages to the watch |
+| CGM (phone) | `src/pkjs/cgm.js` | Nightscout / iPump-mini, scheduling, fallback (from pebble-cgm) |
+| Settings page | `docs/config/` | English / German, live preview |
+| Store listing | `store/` | description, screenshots, `publish.sh` |
+| Developer notes | [`agents.md`](agents.md) | message keys, layout, status logic |
 
 ## Configuration
 
 Tap the settings gear in the Pebble app to open the config page.  
 Available in **English and German** (toggle top-right).
 
-### Nightscout / CGM
+### Data source / CGM
 | Setting | Default | Description |
 |---|---|---|
+| Data source | Nightscout | Nightscout or iPump-mini (local app on the iPhone) |
+| iPump-mini fallback | off | Use Nightscout when iPump-mini is not reachable (cloud symbol) |
 | Nightscout URL | — | Full URL, e.g. `https://mysite.ns.10be.de` — `/pebble` appended automatically |
 | API Token | — | Optional — only needed if your site requires authentication |
 | Units | mg/dL | mg/dL or mmol/L |
@@ -103,7 +136,7 @@ Available in **English and German** (toggle top-right).
 | Date format | DD-MM | DD-MM or MM-DD |
 | First weekday | Sunday | Sunday or Monday |
 | Weekday language | English | English (S M T W T F S) or German (S M D M D F S) |
-| Seconds display | — | Not applicable (no seconds column on Pebble Time 2) |
+| Seconds | off | Small seconds next to HH:MM |
 
 ### Labels
 | Setting | Default | Description |
@@ -129,15 +162,22 @@ Available in **English and German** (toggle top-right).
 ## Building from source
 
 ```bash
-# Requires Pebble SDK 4.9.169
+# Pebble SDK 4.33.1 (pebble-tool 5), target emery
 pebble build
-# Output: build/casiocgm.pbw
+# Output: build/*.pbw
 ```
 
 Clean build:
 ```bash
 pebble clean && pebble build
 ```
+
+---
+
+## Status & roadmap
+
+- **Live:** 2.5.1 in the Pebble Appstore (Nightscout and iPump-mini, reliability fixes from pebble-cgm 1.1.0).
+- Ideas and bugs are welcome as [issues](https://github.com/sgitaize/casiocgm/issues).
 
 ---
 
